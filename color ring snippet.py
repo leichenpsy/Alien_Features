@@ -9,7 +9,7 @@
 ### Note: The code includes some best-effort attempts to raise the window on top when it starts, but this may not work on all platforms or backends. The user may need to manually focus the window if it does not appear on top.
 ### The ring is drawn as a series of ShapeStim objects, which are essentially quadrilaterals that form the segments of the ring. The color of each segment is calculated using the lch_to_psychopy_rgb function, which converts from CIELCh to the RGB color space used by PsychoPy.
 ### The selector is drawn as a line and a knob that follows the mouse position when dragging. The selected color is previewed in a circle, and the hue value is displayed as text below it. The user can submit their selection by clicking the submit button, which will print the selected color's properties to the console.
-### The printed results include the screen angle of the selector, the random ring rotation, the true hue value, the L and C values, and the RGB color in PsychoPy's -1 to 1 range.
+### The printed results include the screen angle of the selector, the random ring rotation (counter clockwise), the true hue value, the L and C values, and the RGB color in PsychoPy's -1 to 1 range.
 
 
 from psychopy import visual, event, core
