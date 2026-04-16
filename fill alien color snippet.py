@@ -1,3 +1,16 @@
+### This is an update version based on 'color ring snippet.py'. Instead of fill in a shape on the screen, this version fill the color of imported alien images. 
+### This filling effect is implemented by prepare two alien images. One image is the outline image, e.g., 'outline alien 130.png'. The outline image is the black drawings of the alien with black and white eyes, on transparent background.
+### The fill layer is an fill image, e.g., 'fill alien 130.png'. The fill image is white covers all the areas of the alien including the outlines on a transparent background. 
+### On the screen, the fill layer is under the outline layer. The window first draws the fill image, then converts it into a greyscale masks using numpy array, therefore the greyscale is essentially a texture.
+### Greyscale is used to indicate to the Psychopy which pixels need to be tinted (colored) by selected hue. 
+
+
+
+
+
+
+
+
 
 # from psychopy import visual, event, core, monitors
 # import numpy as np
