@@ -1,8 +1,24 @@
+### virtual environment: alien_features
+### installed packages in the virtual environment:
+# - Psychopy v2026.1.2
+# - Python v3.10.12
+
+
+
 ### This is an update version based on 'color ring snippet.py'. Instead of fill in a shape on the screen, this version fill the color of imported alien images. 
 ### This filling effect is implemented by prepare two alien images. One image is the outline image, e.g., 'outline alien 130.png'. The outline image is the black drawings of the alien with black and white eyes, on transparent background.
 ### The fill layer is an fill image, e.g., 'fill alien 130.png'. The fill image is white covers all the areas of the alien including the outlines on a transparent background. 
 ### On the screen, the fill layer is under the outline layer. The window first draws the fill image, then converts it into a greyscale masks using numpy array, therefore the greyscale is essentially a texture.
 ### Greyscale is used to indicate to the Psychopy which pixels need to be tinted (colored) by selected hue. 
+
+### In order to accurately display the color, the better practice is to do Monitor Calibration. It is difficult to dirrect do calibration with codes.
+### The current practice is to use the Psychopy Monitor Center to create a moniter with specific parameters, then load in the Monitor with scripts before everything. 
+### The related monitor loading parts are currently marked out.
+
+### The color ring parameters are the same with 'color ring snippet.py'. It also adopts CIELCh. In this example, L = 65 (lightness), C = 40 (chroma), and H (hue) varies from 0 to 360 degrees in steps of 1 degree.
+### The color ring is randomly rotated each time the script is run. 
+
+
 
 
 
