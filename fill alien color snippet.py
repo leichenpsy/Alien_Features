@@ -1,5 +1,33 @@
+
+# from psychopy import visual, event, core, monitors
+# import numpy as np
+# import math
+# from PIL import Image
+
+# # Load a monitor you created in Monitor Center
+# mon = monitors.Monitor('LabDisplay1')
+# mon.setCurrent(-1)  # use most recent stored calibration
+
+# print("Loaded monitor:", mon.name)
+# print("Width (cm):", mon.getWidth())
+# print("Distance (cm):", mon.getDistance())
+# print("Size (pix):", mon.getSizePix())
+# print("Gamma grid:", mon.getGammaGrid())
+
+# win = visual.Window(
+#     size=(1200, 800),
+#     monitor=mon,
+#     units='pix',
+#     color=(-0.72, -0.72, -0.72),
+#     colorSpace='rgb',
+#     allowGUI=True,
+#     fullscr=False,
+#     waitBlanking=True,
+#     useRetina=True
+# )
+
+
 from psychopy import visual, event, core
-from psychopy.hardware import keyboard
 import numpy as np
 import math
 from PIL import Image
@@ -121,13 +149,12 @@ SUBMIT_POS = (250, -235)
 SUBMIT_W = 175
 SUBMIT_H = 66
 
-WHITE_THRESHOLD = 235
-IMAGE_FLIP_VERT = True
+WHITE_THRESHOLD = 180
+IMAGE_FLIP_VERT = False  # fix upside-down display
 
-ring_rotation = 0.0
+ring_rotation = np.random.uniform(0, 360)
 selector_angle_screen = 0.0
 
-DEBUG_PRINT_HUE = False
 
 # =========================
 # Window/input
@@ -142,32 +169,30 @@ win = visual.Window(
     allowGUI=True,
     fullscr=False,
     waitBlanking=True,
-    useRetina=False
+    useRetina=True
 )
 
 mouse = event.Mouse(win=win)
 mouse.setVisible(True)
 
-kb = keyboard.Keyboard()
 
 # =========================
-# Load images
+# Load and prepare images
 # =========================
 
 fill_path = "fill alien 131.png"
 outline_path = "outline alien 131.png"
 
-fill_rgba_base = np.array(Image.open(fill_path).convert("RGBA"), dtype=np.uint8)
+fill_rgba = np.array(Image.open(fill_path).convert("RGBA"), dtype=np.uint8)
 outline_rgba = np.array(Image.open(outline_path).convert("RGBA"), dtype=np.uint8)
 
-h_img, w_img = fill_rgba_base.shape[:2]
+h_img, w_img = fill_rgba.shape[:2]
 scale = min(ALIEN_MAX_W / w_img, ALIEN_MAX_H / h_img)
 alien_size = (w_img * scale, h_img * scale)
 
-fill_rgb = fill_rgba_base[:, :, :3]
-fill_alpha = fill_rgba_base[:, :, 3]
+fill_rgb = fill_rgba[:, :, :3]
+fill_alpha = fill_rgba[:, :, 3]
 
-# Only recolor bright nontransparent pixels
 white_mask = (
     (fill_rgb[:, :, 0] >= WHITE_THRESHOLD) &
     (fill_rgb[:, :, 1] >= WHITE_THRESHOLD) &
@@ -175,58 +200,58 @@ white_mask = (
     (fill_alpha > 0)
 )
 
-# Preserve the lightness structure of the white fill area
-white_shade = np.mean(fill_rgb.astype(np.float32) / 255.0, axis=2)
-mask_rows, mask_cols = np.where(white_mask)
-mask_shade = white_shade[mask_rows, mask_cols]
+# Create a grayscale intensity texture only in the recolorable region.
+# Black outside the mask, grayscale inside.
+gray_tex = np.zeros((h_img, w_img, 4), dtype=np.uint8)
 
-# Precompute hue table
+# preserve shading from original bright pixels
+shade = np.mean(fill_rgb.astype(np.float32), axis=2)
+shade = np.clip(shade, 0, 255).astype(np.uint8)
+
+gray_tex[:, :, 0] = np.where(white_mask, shade, 0)
+gray_tex[:, :, 1] = np.where(white_mask, shade, 0)
+gray_tex[:, :, 2] = np.where(white_mask, shade, 0)
+gray_tex[:, :, 3] = np.where(white_mask, fill_alpha, 0)
+
+gray_fill_image = Image.fromarray(gray_tex, mode="RGBA")
+outline_image = Image.fromarray(outline_rgba, mode="RGBA")
+
+print("Masked pixels:", np.count_nonzero(white_mask))
+
+
+# =========================
+# Precompute hue colors
+# =========================
+
 hue_rgb_psy = np.array(
     [lch_to_psychopy_rgb(L_VAL, C_VAL, hh) for hh in range(360)],
     dtype=np.float32
 )
-hue_rgb_srgb01 = np.clip((hue_rgb_psy + 1.0) / 2.0, 0.0, 1.0)
 
-tint_cache = {}
-
-
-def make_tinted_fill_image(hue_idx):
-    """Return a PIL RGBA image for the requested hue."""
-    if hue_idx in tint_cache:
-        return tint_cache[hue_idx]
-
-    srgb01 = hue_rgb_srgb01[hue_idx]
-    out = fill_rgba_base.copy()
-
-    tint_rgb = (mask_shade[:, None] * srgb01[None, :]) * 255.0
-    out[mask_rows, mask_cols, :3] = np.clip(tint_rgb, 0, 255).astype(np.uint8)
-
-    img = Image.fromarray(out, mode="RGBA")
-    tint_cache[hue_idx] = img
-    return img
+current_hue_idx = 0
+selected_hue = 0.0
+selected_rgb = hue_rgb_psy[0]
 
 
 # =========================
 # Stimuli
 # =========================
 
-current_hue_idx = None
-selected_hue = 0.0
-selected_rgb = hue_rgb_psy[0]
-
 fill_stim = visual.ImageStim(
     win=win,
-    image=make_tinted_fill_image(0),
+    image=gray_fill_image,
     pos=ALIEN_POS,
     size=alien_size,
     units='pix',
     interpolate=True,
-    flipVert=IMAGE_FLIP_VERT
+    flipVert=IMAGE_FLIP_VERT,
+    color=selected_rgb,
+    colorSpace='rgb'
 )
 
 outline_stim = visual.ImageStim(
     win=win,
-    image=Image.fromarray(outline_rgba, mode="RGBA"),
+    image=outline_image,
     pos=ALIEN_POS,
     size=alien_size,
     units='pix',
@@ -285,17 +310,9 @@ selector_line = visual.Line(
     start=(0, 0),
     end=(0, 0),
     lineColor='white',
-    lineWidth=6
+    lineWidth=4
 )
 
-selector_knob = visual.Circle(
-    win,
-    radius=10,
-    pos=(0, 0),
-    fillColor='white',
-    lineColor='black',
-    lineWidth=1.5
-)
 
 hue_text = visual.TextStim(
     win,
@@ -335,15 +352,17 @@ submit_text = visual.TextStim(
 
 
 # =========================
-# UI update helpers
+# Update helpers
 # =========================
 
+
 def update_selector_geometry():
-    p1 = np.array(RING_CENTER) + pol_to_cart(INNER_R - 10, selector_angle_screen)
-    p2 = np.array(RING_CENTER) + pol_to_cart(OUTER_R + 10, selector_angle_screen)
+    eps = 1.0
+    p1 = np.array(RING_CENTER) + pol_to_cart(INNER_R + eps, selector_angle_screen)
+    p2 = np.array(RING_CENTER) + pol_to_cart(OUTER_R - eps, selector_angle_screen)
     selector_line.start = p1
     selector_line.end = p2
-    selector_knob.pos = p2
+    
 
 
 def update_selected_color_from_angle():
@@ -351,15 +370,11 @@ def update_selected_color_from_angle():
 
     selected_hue = (selector_angle_screen - ring_rotation) % 360
     hue_idx = int(round(selected_hue)) % 360
+    current_hue_idx = hue_idx
     selected_rgb = hue_rgb_psy[hue_idx]
 
+    fill_stim.color = selected_rgb
     hue_text.text = f"L={L_VAL}, C={C_VAL}, h={selected_hue:.1f}°"
-
-    if hue_idx != current_hue_idx:
-        fill_stim.setImage(make_tinted_fill_image(hue_idx))
-        current_hue_idx = hue_idx
-        if DEBUG_PRINT_HUE:
-            print(f"Updated hue -> {hue_idx}")
 
 
 def mouse_on_ring(mouse_pos):
@@ -377,7 +392,6 @@ def draw_scene():
     outer_outline.draw()
     inner_outline.draw()
     selector_line.draw()
-    selector_knob.draw()
     hue_text.draw()
 
     submit_rect.draw()
@@ -398,14 +412,13 @@ submitted = False
 prev_left = False
 
 while not submitted:
-    if kb.getKeys(keyList=['escape'], waitRelease=False, clear=True):
+    if 'escape' in event.getKeys():
         win.close()
         core.quit()
 
     mouse_pos = mouse.getPos()
     left = mouse.getPressed(getTime=False)[0]
 
-    # Mouse press edge
     if left and not prev_left:
         if point_in_rect(mouse_pos, SUBMIT_POS, SUBMIT_W, SUBMIT_H):
             submitted = True
@@ -415,13 +428,11 @@ while not submitted:
             update_selector_geometry()
             update_selected_color_from_angle()
 
-    # Drag
     if dragging and left:
         selector_angle_screen = angle_from_xy(mouse_pos[0], mouse_pos[1], center=RING_CENTER)
         update_selector_geometry()
         update_selected_color_from_angle()
 
-    # Mouse release edge
     if prev_left and not left:
         dragging = False
 

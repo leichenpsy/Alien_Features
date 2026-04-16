@@ -8,7 +8,7 @@
 ### The recorded hue is the true hue corresponding to a non rotated ring where red is approciamtely at 0/360 degrees. The ring is randomly rotated each time the program is run, so the screen angle of the selector will not directly correspond to the hue value. The user can click and drag a selector around the ring to choose a color, and then click a submit button to output the selected color's properties.
 ### Note: The code includes some best-effort attempts to raise the window on top when it starts, but this may not work on all platforms or backends. The user may need to manually focus the window if it does not appear on top.
 ### The ring is drawn as a series of ShapeStim objects, which are essentially quadrilaterals that form the segments of the ring. The color of each segment is calculated using the lch_to_psychopy_rgb function, which converts from CIELCh to the RGB color space used by PsychoPy.
-### The selector is drawn as a line and a knob that follows the mouse position when dragging. The selected color is previewed in a circle, and the hue value is displayed as text below it. The user can submit their selection by clicking the submit button, which will print the selected color's properties to the console.
+### The selector is drawn as a line that follows the mouse position when dragging. The selected color is previewed in a circle, and the hue value is displayed as text below it. The user can submit their selection by clicking the submit button, which will print the selected color's properties to the console.
 ### The printed results include the screen angle of the selector, the random ring rotation (counter clockwise), the true hue value, the L and C values, and the RGB color in PsychoPy's -1 to 1 range.
 
 
@@ -135,10 +135,10 @@ SUBMIT_H = 66
 BG = (-0.72, -0.72, -0.72)
 
 # Random ring rotation each run
-ring_rotation = random.uniform(0, 360)
+ring_rotation = np.random.uniform(0, 360)
 
 # Initial selector position in screen coordinates
-selector_angle_screen = random.uniform(0, 360)
+selector_angle_screen = np.random.uniform(0, 360)
 
 
 # =========================
@@ -256,25 +256,19 @@ selector_line = visual.Line(
     end=(0, 0),
     lineColor='white',
     colorSpace='named',
-    lineWidth=6
+    lineWidth=4
 )
 
-selector_knob = visual.Circle(
-    win,
-    radius=9,
-    pos=(0, 0),
-    fillColor='white',
-    lineColor='black',
-    lineWidth=1
-)
+
 
 
 def update_selector_geometry():
-    p1 = pol_to_cart(INNER_R - 10, selector_angle_screen)
-    p2 = pol_to_cart(OUTER_R + 10, selector_angle_screen)
+    eps = 1.0
+    p1 = np.array(RING_CENTER) + pol_to_cart(INNER_R + eps, selector_angle_screen)
+    p2 = np.array(RING_CENTER) + pol_to_cart(OUTER_R - eps, selector_angle_screen)
     selector_line.start = p1
     selector_line.end = p2
-    selector_knob.pos = p2
+    
 
 
 # =========================
@@ -374,7 +368,6 @@ def draw_scene():
     outer_outline.draw()
     inner_outline.draw()
     selector_line.draw()
-    selector_knob.draw()
     preview_circle.draw()
     preview_label.draw()
     hue_text.draw()
