@@ -1,0 +1,19 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2869
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 README\
+\
+\
+These snippets are used to test whether dynamically recolor the alien images is doable in Psychopy. The experiment went on successfully. \
+\
+The first snippet is \'91color ring snippet.py\'92 used to implement the color ring function.\
+The second snippet \'91fill alien color snippet.py\'92 was built on the first snippet. The main function to test is recoloring the designated areas of alien pictures. This function is realized by 3 stacked layers (from top to bottom): outline layer, greyscale layer, and fill layer. The other two layers consist of real images, but the greyscale layer is built by Psychopy. This layer catches the white pixels on the fill layer (therefore there is a parameter: white threshold) and creates textures on these pixels as masks. Psychopy tints these textures. \
+\
+To make the recoloring as moving around the color ring smooth, the script precomputes the colors. The color ring is evenly divided into 360 degrees. Each degree suggests a different hue. \
+\
+\
+More parameters, functions and settings of the scripts, please refer to the markdown of the scripts. }

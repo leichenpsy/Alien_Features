@@ -1,0 +1,97 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2869
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fnil\fcharset0 Menlo-Regular;}
+{\colortbl;\red255\green255\blue255;\red173\green176\blue178;\red15\green16\blue16;\red167\green197\blue152;
+}
+{\*\expandedcolortbl;;\cssrgb\c73333\c74510\c74902;\cssrgb\c7059\c7451\c7843;\cssrgb\c70980\c80784\c65882;
+}
+\margl1440\margr1440\vieww28240\viewh14280\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 \
+\
+
+\fs48 READ ME
+\fs24 \
+\
+
+\fs36 Sources
+\fs24 \
+\
+From Google search, key words \'91simple alien monster drawings\'92 etc.\
+\
+Alien 131, 174 - 200 are generated from AI. \
+\
+\
+
+\fs36 Batch Processing\
+
+\fs24 \
+Picture processing order: Raw images (cut into single alien, quality check) -> transparent size 1000 (remove color, turn to black, resize to 1000 * 1000 px) ->vectorized (improved via Illustrator) \
+\
+\
+
+\fs36 Selected Pictures for tasks\
+
+\fs24 \
+Selected pictures process (for learning task):\
+1. Matching styles. Create 8 list, each consisting of 4 images with similar style.\
+2. Assign to each image of each list randomly to 4 new lists.\
+\
+Selected pictures process (for testing task):\
+1. Matching styles. Create 4 list, each consisting of 4 images with similar style.\
+2. Assign to each image of each list randomly to 4 new lists via the script \'93select.py\'94.\
+\
+Matching style lists  (for learning task):\
+\pard\pardeftab720\partightenfactor0
+
+\f1 \cf2 \cb3 \expnd0\expndtw0\kerning0
+    [\cf4 1\cf2 , \cf4 2\cf2 , \cf4 131\cf2 , \cf4 140\cf2 ],\cb1 \
+\cb3     [\cf4 122\cf2 , \cf4 132\cf2 , \cf4 133\cf2 , \cf4 135\cf2 ],\cb1 \
+\cb3     [\cf4 124\cf2 , \cf4 134\cf2 , \cf4 139\cf2 , \cf4 153\cf2 ],\cb1 \
+\cb3     [\cf4 123\cf2 , \cf4 149\cf2 , \cf4 130\cf2 , \cf4 190\cf2 ],\cb1 \
+\cb3     [\cf4 142\cf2 , \cf4 154\cf2 , \cf4 168\cf2 , \cf4 173\cf2 ],\cb1 \
+\cb3     [\cf4 150\cf2 , \cf4 152\cf2 , \cf4 186\cf2 , \cf4 185\cf2 ],\cb1 \
+\cb3     [\cf4 188\cf2 , \cf4 189\cf2 , \cf4 191\cf2 , \cf4 198\cf2 ],\cb1 \
+\cb3     [\cf4 163\cf2 , \cf4 169\cf2 , \cf4 172\cf2 , \cf4 147\cf2 ],\cb1 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0 \cf0 \kerning1\expnd0\expndtw0 \
+New 4 lists (for learning task, randomly assigned to 4 lists):\
+list_1: [1, 122, 139, 123, 154, 150, 198, 169]\
+list_2: [140, 133, 124, 190, 142, 185, 188, 163]\
+list_3: [2, 132, 134, 130, 173, 152, 191, 147]\
+list_4: [131, 135, 153, 149, 168, 186, 189, 172]\
+\
+Matching style list (for testing task):\
+\pard\pardeftab720\partightenfactor0
+
+\f1 \cf2 \cb3 \expnd0\expndtw0\kerning0
+    [\cf4 11\cf2 , \cf4 12\cf2 , \cf4 18\cf2 , \cf4 17\cf2 ],\cb1 \
+\cb3     [\cf4 23\cf2 , \cf4 28\cf2 , \cf4 34\cf2 , \cf4 58\cf2 ],\cb1 \
+\cb3     [\cf4 26\cf2 , \cf4 46\cf2 , \cf4 67\cf2 , \cf4 70\cf2 ],\cb1 \
+\cb3     [\cf4 121\cf2 , \cf4 194\cf2 , \cf4 175\cf2 , \cf4 187\cf2 ],\cb1 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0 \cf0 \kerning1\expnd0\expndtw0 \
+\
+New 4 lists (for testing task, randomly assigned to 4 lists):\
+list_1: [11, 34, 70, 175]\
+list_2: [17, 23, 46, 121]\
+list_3: [18, 28, 26, 187]\
+list_4: [12, 58, 67, 194]\
+\
+\
+
+\fs36 Selected Pictures Processing
+\fs24 \
+\
+\
+1. Quality improvement via Illustrator: path simplify, path smooth, remove too complex patterns/lines, adjust stroke weights (4~5 px)\
+2. Transform improved images as 1000 * 1000 background transparent, 300 ppi. These images are stored in each list of Selected/Learning or Selected/Testing.\
+3. Make fill images and outline images. Fill images cover all the alien body as white while keeps background transparent; Outline images adjust the eyes color as black and white and leave others (except the black drawings) transparent. \
+Outline images in each list are stored in respective Selected/Learning (or Testing)/list_n/outline layer; Fill images in each list are stored in its respective Selected/Learning (or Testing)/list_n/fill layer.\
+\
+In the experiment, the outline image will be placed on the top of fill images. Fill images use white to indicate the areas that experiment software needs to recolor in the study. \
+\
+\
+}
