@@ -8,9 +8,9 @@ script.
 Instructions: From the dialogue box select multiple staircases (Cmd-click
 or shift-click) to plot the results
 """
-
 import matplotlib
-matplotlib.use('TKAgg')
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 from psychopy import data, gui, core
 from psychopy.tools.filetools import fromFile
