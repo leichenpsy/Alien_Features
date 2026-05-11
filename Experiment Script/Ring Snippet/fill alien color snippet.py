@@ -18,6 +18,10 @@
 ### The color ring parameters are the same with 'color ring snippet.py'. It also adopts CIELCh. In this example, L = 65 (lightness), C = 40 (chroma), and H (hue) varies from 0 to 360 degrees in steps of 1 degree.
 ### The color ring is randomly rotated each time the script is run. 
 
+## This snippet can be used for learning the material and for testing memories.
+## If for learning, set parameter `DRAGGABLE = False` to prevent the user from dragging the bar, `SUBMIT_VISIBLE = False' and set `INITIAL_COLOR` to a specific value to control where the bar starts.
+## if for testing, set `DRAGGABLE = True` to allow the user to drag the bar, `SUBMIT_VISIBLE = True` to show the submit button, and set `INITIAL_COLOR` to None to randomize the starting position of the bar.
+
 
 
 
@@ -108,11 +112,13 @@ def xyz_to_linear_rgb(x, y, z):
 
 def linear_to_srgb(rgb_lin):
     out = np.empty(3, dtype=float)
+
     for i, c in enumerate(rgb_lin):
         if c <= 0.0031308:
             out[i] = 12.92 * c
         else:
             out[i] = 1.055 * (c ** (1 / 2.4)) - 0.055
+
     return out
 
 
@@ -122,6 +128,8 @@ def lch_to_psychopy_rgb(L, C, h_deg):
     rgb_lin = xyz_to_linear_rgb(x, y, z)
     rgb = linear_to_srgb(rgb_lin)
     rgb = np.clip(rgb, 0.0, 1.0)
+
+    # PsychoPy rgb range is -1 to 1
     return rgb * 2.0 - 1.0
 
 
@@ -130,27 +138,109 @@ def lch_to_psychopy_rgb(L, C, h_deg):
 # =========================
 
 def pol_to_cart(r, ang_deg):
+    """
+    Convert polar coordinates to Cartesian coordinates.
+
+    Angle is in degrees.
+    0 degrees points right.
+    90 degrees points up.
+    """
     a = np.deg2rad(ang_deg)
     return np.array([r * np.cos(a), r * np.sin(a)], dtype=float)
 
 
 def angle_from_xy(x, y, center=(0.0, 0.0)):
+    """
+    Convert an x/y mouse position to a screen angle in degrees.
+    """
     dx = x - center[0]
     dy = y - center[1]
+
     ang = np.degrees(np.arctan2(dy, dx))
+
     if ang < 0:
         ang += 360
+
     return ang
 
 
 def point_in_rect(pt, center, w, h):
     x, y = pt
     cx, cy = center
-    return (cx - w / 2 <= x <= cx + w / 2) and (cy - h / 2 <= y <= cy + h / 2)
+
+    return (
+        cx - w / 2 <= x <= cx + w / 2 and
+        cy - h / 2 <= y <= cy + h / 2
+    )
 
 
 def distance_to_center(x, y, center):
     return math.hypot(x - center[0], y - center[1])
+
+
+# =========================
+# Color ring helpers
+# =========================
+
+def create_color_ring(
+    win,
+    ring_center,
+    ring_radius,
+    ring_width,
+    hue_rgb_psy,
+    ring_rotation=0.0,
+    n_segments=360
+):
+    """
+    Create a circular color ring made from 1-degree wedge segments.
+
+    Returns
+    -------
+    ring_sectors : list
+        List of PsychoPy ShapeStim ring segments.
+
+    inner_r : float
+        Inner radius of the ring.
+
+    outer_r : float
+        Outer radius of the ring.
+    """
+
+    inner_r = ring_radius - ring_width / 2
+    outer_r = ring_radius + ring_width / 2
+
+    ring_sectors = []
+
+    for i in range(n_segments):
+        col = hue_rgb_psy[i % len(hue_rgb_psy)]
+
+        a1 = i + ring_rotation
+        a2 = i + 1 + ring_rotation
+
+        p1o = np.array(ring_center) + pol_to_cart(outer_r, a1)
+        p2o = np.array(ring_center) + pol_to_cart(outer_r, a2)
+        p2i = np.array(ring_center) + pol_to_cart(inner_r, a2)
+        p1i = np.array(ring_center) + pol_to_cart(inner_r, a1)
+
+        sector = visual.ShapeStim(
+            win=win,
+            vertices=np.array([p1o, p2o, p2i, p1i]),
+            fillColor=col,
+            lineColor=col,
+            lineWidth=0,
+            colorSpace='rgb',
+            closeShape=True,
+            interpolate=True
+        )
+
+        ring_sectors.append(sector)
+
+    return ring_sectors, inner_r, outer_r
+
+
+def draw_color_ring(ring_sectors):
+    for sector in ring_sectors:
+        sector.draw()
 
 
 # =========================
@@ -166,8 +256,6 @@ BG = (-0.72, -0.72, -0.72)
 RING_CENTER = (250, 20)
 RING_RADIUS = 190
 RING_WIDTH = 34
-INNER_R = RING_RADIUS - RING_WIDTH / 2
-OUTER_R = RING_RADIUS + RING_WIDTH / 2
 N_SEGMENTS = 360
 
 ALIEN_POS = (-250, 20)
@@ -177,12 +265,40 @@ ALIEN_MAX_H = 520
 SUBMIT_POS = (250, -235)
 SUBMIT_W = 175
 SUBMIT_H = 66
+SUBMIT_VISIBLE = True
 
 WHITE_THRESHOLD = 180
-IMAGE_FLIP_VERT = False  # fix upside-down display
+IMAGE_FLIP_VERT = False
+
+# If True, participant can drag around the ring to change color.
+# If False, participant can only submit the initial color.
+DRAGGABLE = True
+
+# Initial selector-line color before participant drags.
+INITIAL_COLOR = "white"
+
+# Selector-line color after participant starts dragging.
+SELECTOR_ACTIVE_COLOR = "black"
+
+# If True, the initial alien color is chosen randomly.
+# If False, the initial alien color starts at INITIAL_HUE.
+RANDOM_INITIAL_HUE = True
+INITIAL_HUE = 0.0
+
+
+# =========================
+# Randomized initial state
+# =========================
 
 ring_rotation = np.random.uniform(0, 360)
-selector_angle_screen = 0.0
+
+if RANDOM_INITIAL_HUE:
+    initial_hue = np.random.uniform(0, 360)
+else:
+    initial_hue = INITIAL_HUE % 360
+
+# Convert true hue into screen angle, taking ring rotation into account.
+selector_angle_screen = (initial_hue + ring_rotation) % 360
 
 
 # =========================
@@ -206,7 +322,7 @@ mouse.setVisible(True)
 
 
 # =========================
-# Load and prepare images
+# Load and prepare alien images
 # =========================
 
 fill_path = "fill alien 131.png"
@@ -216,8 +332,16 @@ fill_rgba = np.array(Image.open(fill_path).convert("RGBA"), dtype=np.uint8)
 outline_rgba = np.array(Image.open(outline_path).convert("RGBA"), dtype=np.uint8)
 
 h_img, w_img = fill_rgba.shape[:2]
-scale = min(ALIEN_MAX_W / w_img, ALIEN_MAX_H / h_img)
-alien_size = (w_img * scale, h_img * scale)
+
+scale = min(
+    ALIEN_MAX_W / w_img,
+    ALIEN_MAX_H / h_img
+)
+
+alien_size = (
+    w_img * scale,
+    h_img * scale
+)
 
 fill_rgb = fill_rgba[:, :, :3]
 fill_alpha = fill_rgba[:, :, 3]
@@ -229,11 +353,8 @@ white_mask = (
     (fill_alpha > 0)
 )
 
-# Create a grayscale intensity texture only in the recolorable region.
-# Black outside the mask, grayscale inside.
 gray_tex = np.zeros((h_img, w_img, 4), dtype=np.uint8)
 
-# preserve shading from original bright pixels
 shade = np.mean(fill_rgb.astype(np.float32), axis=2)
 shade = np.clip(shade, 0, 255).astype(np.uint8)
 
@@ -257,9 +378,12 @@ hue_rgb_psy = np.array(
     dtype=np.float32
 )
 
-current_hue_idx = 0
-selected_hue = 0.0
-selected_rgb = hue_rgb_psy[0]
+current_hue_idx = int(round(initial_hue)) % 360
+selected_hue = float(initial_hue)
+selected_rgb = hue_rgb_psy[current_hue_idx]
+
+# Track whether participant has moved the selector.
+selector_has_moved = False
 
 
 # =========================
@@ -288,29 +412,16 @@ outline_stim = visual.ImageStim(
     flipVert=IMAGE_FLIP_VERT
 )
 
-ring_sectors = []
-for i in range(N_SEGMENTS):
-    col = hue_rgb_psy[i]
-    a1 = i + ring_rotation
-    a2 = i + 1 + ring_rotation
-
-    p1o = np.array(RING_CENTER) + pol_to_cart(OUTER_R, a1)
-    p2o = np.array(RING_CENTER) + pol_to_cart(OUTER_R, a2)
-    p2i = np.array(RING_CENTER) + pol_to_cart(INNER_R, a2)
-    p1i = np.array(RING_CENTER) + pol_to_cart(INNER_R, a1)
-
-    ring_sectors.append(
-        visual.ShapeStim(
-            win=win,
-            vertices=np.array([p1o, p2o, p2i, p1i]),
-            fillColor=col,
-            lineColor=col,
-            lineWidth=0,
-            colorSpace='rgb',
-            closeShape=True,
-            interpolate=True
-        )
-    )
+# Create color ring using function
+ring_sectors, INNER_R, OUTER_R = create_color_ring(
+    win=win,
+    ring_center=RING_CENTER,
+    ring_radius=RING_RADIUS,
+    ring_width=RING_WIDTH,
+    hue_rgb_psy=hue_rgb_psy,
+    ring_rotation=ring_rotation,
+    n_segments=N_SEGMENTS
+)
 
 outer_outline = visual.Circle(
     win=win,
@@ -335,79 +446,105 @@ inner_outline = visual.Circle(
 )
 
 selector_line = visual.Line(
-    win,
+    win=win,
     start=(0, 0),
     end=(0, 0),
-    lineColor='white',
+    lineColor=INITIAL_COLOR,
     lineWidth=4
 )
 
-
 hue_text = visual.TextStim(
-    win,
+    win=win,
     text='',
     pos=(RING_CENTER[0], RING_CENTER[1] + 255),
     color='white',
     height=22
 )
 
+if DRAGGABLE:
+    instruction_message = (
+        'Click and drag around the ring to recolor the alien. '
+        'Release, then click Submit. Esc quits.'
+    )
+else:
+    instruction_message = (
+        'Dragging is disabled. Click Submit to record the initial color. Esc quits.'
+    )
+
 instruction_text = visual.TextStim(
-    win,
-    text='Click and drag around the ring to recolor the alien. Release, then click Submit. Esc quits.',
+    win=win,
+    text=instruction_message,
     pos=(0, 350),
     color='white',
     height=22,
     wrapWidth=1100
 )
+if SUBMIT_VISIBLE:
+    submit_rect = visual.Rect(
+        win=win,
+        width=SUBMIT_W,
+        height=SUBMIT_H,
+        pos=SUBMIT_POS,
+        fillColor=(-0.35, -0.35, -0.35),
+        lineColor='white',
+        lineWidth=2,
+        colorSpace='rgb'
+    )
 
-submit_rect = visual.Rect(
-    win,
-    width=SUBMIT_W,
-    height=SUBMIT_H,
-    pos=SUBMIT_POS,
-    fillColor=(-0.35, -0.35, -0.35),
-    lineColor='white',
-    lineWidth=2,
-    colorSpace='rgb'
-)
-
-submit_text = visual.TextStim(
-    win,
-    text='Submit',
-    pos=SUBMIT_POS,
-    color='white',
-    height=28
-)
+    submit_text = visual.TextStim(
+        win=win,
+        text='Submit',
+        pos=SUBMIT_POS,
+        color='white',
+        height=28
+    )
+else:
+    submit_rect = None
+    submit_text = None  
 
 
 # =========================
 # Update helpers
 # =========================
 
-
 def update_selector_geometry():
     eps = 1.0
-    p1 = np.array(RING_CENTER) + pol_to_cart(INNER_R + eps, selector_angle_screen)
-    p2 = np.array(RING_CENTER) + pol_to_cart(OUTER_R - eps, selector_angle_screen)
+
+    p1 = np.array(RING_CENTER) + pol_to_cart(
+        INNER_R + eps,
+        selector_angle_screen
+    )
+
+    p2 = np.array(RING_CENTER) + pol_to_cart(
+        OUTER_R - eps,
+        selector_angle_screen
+    )
+
     selector_line.start = p1
     selector_line.end = p2
-    
 
 
 def update_selected_color_from_angle():
     global selected_hue, selected_rgb, current_hue_idx
 
     selected_hue = (selector_angle_screen - ring_rotation) % 360
+
     hue_idx = int(round(selected_hue)) % 360
     current_hue_idx = hue_idx
-    selected_rgb = hue_rgb_psy[hue_idx]
 
+    selected_rgb = hue_rgb_psy[hue_idx]
     fill_stim.color = selected_rgb
+
     hue_text.text = f"L={L_VAL}, C={C_VAL}, h={selected_hue:.1f}°"
 
 
 def mouse_on_ring(mouse_pos):
-    d = distance_to_center(mouse_pos[0], mouse_pos[1], RING_CENTER)
+    d = distance_to_center(
+        mouse_pos[0],
+        mouse_pos[1],
+        RING_CENTER
+    )
+
     return INNER_R <= d <= OUTER_R
 
 
@@ -415,22 +552,24 @@ def draw_scene():
     fill_stim.draw()
     outline_stim.draw()
 
-    for s in ring_sectors:
-        s.draw()
+    draw_color_ring(ring_sectors)
 
     outer_outline.draw()
     inner_outline.draw()
+
     selector_line.draw()
     hue_text.draw()
 
     submit_rect.draw()
     submit_text.draw()
+
     instruction_text.draw()
 
 
-# Initialize
+# Initialize selector and alien color
 update_selector_geometry()
 update_selected_color_from_angle()
+
 
 # =========================
 # Main loop
@@ -440,6 +579,20 @@ dragging = False
 submitted = False
 prev_left = False
 
+if not DRAGGABLE:
+    instruction_text.text = (
+        'Dragging is disabled. Click Submit to record the initial color. Esc quits.'
+    )
+    selected_hue = initial_hue
+    selected_rgb = hue_rgb_psy[int(round(initial_hue)) % 360]
+    fill_stim.color = selected_rgb
+    selector_has_moved = None
+
+else: 
+    instruction_text.text = (
+        'Click and drag around the ring to recolor the alien. '
+        'Release, then click Submit. Esc quits.'
+    )
 while not submitted:
     if 'escape' in event.getKeys():
         win.close()
@@ -448,21 +601,45 @@ while not submitted:
     mouse_pos = mouse.getPos()
     left = mouse.getPressed(getTime=False)[0]
 
-    if left and not prev_left:
-        if point_in_rect(mouse_pos, SUBMIT_POS, SUBMIT_W, SUBMIT_H):
+    new_press = left and not prev_left
+    new_release = prev_left and not left
+
+    if new_press:
+        if point_in_rect(
+            mouse_pos,
+            SUBMIT_POS,
+            SUBMIT_W,
+            SUBMIT_H
+        ):
             submitted = True
-        elif mouse_on_ring(mouse_pos):
+
+        elif DRAGGABLE and mouse_on_ring(mouse_pos):
             dragging = True
-            selector_angle_screen = angle_from_xy(mouse_pos[0], mouse_pos[1], center=RING_CENTER)
+
+            if not selector_has_moved:
+                selector_has_moved = True
+                selector_line.lineColor = SELECTOR_ACTIVE_COLOR
+
+            selector_angle_screen = angle_from_xy(
+                mouse_pos[0],
+                mouse_pos[1],
+                center=RING_CENTER
+            )
+
             update_selector_geometry()
             update_selected_color_from_angle()
 
-    if dragging and left:
-        selector_angle_screen = angle_from_xy(mouse_pos[0], mouse_pos[1], center=RING_CENTER)
+    if DRAGGABLE and dragging and left:
+        selector_angle_screen = angle_from_xy(
+            mouse_pos[0],
+            mouse_pos[1],
+            center=RING_CENTER
+        )
+
         update_selector_geometry()
         update_selected_color_from_angle()
 
-    if prev_left and not left:
+    if new_release:
         dragging = False
 
     prev_left = left
@@ -470,16 +647,20 @@ while not submitted:
     draw_scene()
     win.flip()
 
+
 # =========================
 # Output
 # =========================
 
-print("Submitted color:")
+
+print(f"initial hue = {initial_hue:.2f}")
+print(f"selected hue = {selected_hue:.2f}")
 print(f"screen angle = {selector_angle_screen:.2f}")
 print(f"ring rotation = {ring_rotation:.2f}")
-print(f"true hue = {selected_hue:.2f}")
 print(f"L={L_VAL}, C={C_VAL}")
-print(f"rgb (PsychoPy -1..1) = {selected_rgb}")
+print(f"rgb PsychoPy -1..1 = {selected_rgb}")
+print(f"dragging enabled = {DRAGGABLE}")
+print(f"selector moved = {selector_has_moved}")
 
 win.close()
 core.quit()
