@@ -13,30 +13,225 @@ from PIL import Image
 MONITOR = 'AlienMemoryMonitor' ## set the name of the monitor that you created with create_monitor.py
 WIN_SIZE = ()
 WIN_BG = () ## set window background color in rbg format, e.g. (0, 0, 0) for black, (1, 1, 1) for white, (-1, -1, -1) for black in rgb space
+RETINA = True ## set to True if using a retina display, False otherwise. This will ensure that the stimuli are displayed at the correct size on retina displays, which have a higher pixel density.
+
 
 ##### Learning Trial Parameters #####
 ENCODING_TIME = 4.0 ## time to show each alien during encoding phase in seconds
 BLANK_TIME = 0.5 ## time to show blank screen between encoding and practice phases in seconds
 INTERVAL_TIME = 1.0 ## time to show blank screen between learning trials in seconds
 FIXATION_TIME = np.random.uniform(0.75,1.25) ## time to show fixation cross before each trial in seconds (randomized between 0.75 and 1.25 second)  
+BLOCK_BREAK_TIME = 90.0 ## time to show break screen between learning blocks in seconds 
 
 ###### Stimulus Parameters ######
 ALIEN_SIZE = 100 ## size of the alien images in pixels
+MASK_THRESHOLD = 180 
+
 ALIEN_M_NAMES = ["Ethan Miller", "Liam Chen", "Noah Johnson", "Mason Clark", "Aiden Brown", "Lucas Walker", "Owen Bennett", "Leo Collins", "Caleb Turner", "Wyatt Reed", "Nathan Scott", "Ezra Hayes","Hudson Gray", "Carter Price", "Grayson Cole", "Asher Bell", "Dylan Foster", "Ryan Cooper", "Roman Blake", "Hunter Murphy", "Aaron Cox", "Thomas Watson", "Theo Lawson", "Gavin Pierce", "Jason Howard"]
 ALIEN_F_NAMES = ["Sophie Lee", "Olivia Smith", "Emma Davis", "Ava Mitchell", "Mia Taylor", "Harper Bailey", "Ella Ward", "Grace Hughes", "Zoe Ramirez","Lily Adams", "Riley Griffin","Avery Diaz","Paige Larson", "Kayla Dunn", "Katie Ross", "Jessica Lane", "Lauren Hill", "Rachel Wood", "Nicole Grant", "Leah Perry", "Amber Cruz", "Allison Ford", "Julia Banks", "Chloe Dean", "Hailey Moore"]
+ALIEN_PLANETS = ["Phyethia", "Teraris", "Luxidon", "Arcteron"]  
+
+ALIEN_PATH_LEARNING = ""
+ALIEN_PATH_PRACTICE = ""
+ALIEN_PATH_GEN = ""
+IMAGE_FLIP_VERT = False ## set to True if the alien images need to be flipped vertically, False otherwise. This will ensure that the images are displayed correctly based on how they were created. 
+
+###### Color Parameters ######
+# D65 reference white
+XN = 95.047
+YN = 100.000
+ZN = 108.883
+# This script adopts CIE LCh color space, which is a cylindrical representation of the CIE Lab color space. In CIE LCh, colors are represented by three parameters: L* (lightness), C* (chroma), and h° (hue angle). The hue angle is measured in degrees, with 0° corresponding to red, 90° to yellow, 180° to green, and 270° to blue. The chroma represents the intensity of the color, with higher values indicating more saturated colors. The lightness represents the brightness of the color, with higher values indicating lighter colors.
+# For this experiment, L and C values will be held constant while h° values will be manipulated to create different colors for the aliens. The specific L and C values, as well as the range of h° values, can be adjusted based on the desired color palette for the experiment.
+L_VALUE = 65 ## set the lightness value for the alien colors. This will control how light or dark the colors of the aliens are. Higher values will result in lighter colors, while lower values will result in darker colors. The range of L values is typically from 0 to 100, where 0 is black and 100 is white.
+C_VALUE = 40 ## set the chroma value for the alien colors. This will control how saturated the colors of the aliens are. Higher values will result in more saturated colors, while lower values will result in more desaturated colors. The range of C values can vary depending on the specific color space being used, but typically it can range from 0 to around 100 or more, where 0 is completely desaturated (gray) and higher values indicate more saturation.
+
+
+###### Ring Parameters ######
+# Color ring parameters
 
 
 
 
 
+###### MODE PARAMETERS ######
+MODES = ['debug','demo','experiment']
+EXPERIMENT_GROUPS = ['1','2'] ## set the group assignemnt for the experiment. '1' for immediate test group, '2' for 1-day-delay test group. 
 
 
+###### Structure Parameters ######
+
+### number of trials and blocks for each phase of the experiment. These parameters will be used to create the structure of the experiment.
+NUM_PRACTICE_PER_GROUP = 1
+NUM_PRACTICE_GROUPS = 4
+
+NUM_LEARNING_BLOCKS = 3
+NUM_LEARNING_GROUPS = 4
+NUM_ALIEN_LEARNING_PER_GROUP = 8 ## number of aliens assigned to each group during learning phase.
+
+NUM_TESTING_PER_GROUP = 8
+NUM_TESTING_GROUP = 4
+
+NUM_GENERALIZATION_PER_GROUP = 2
+NUM_GENERALIZATION_GROUPS = 4
+
+### Phase settings for the working memory test, the memory test, generalization test, color reconstruction. 
+WK_MEMORY_STATUS = True ## set to True if working memory is included in the experiment, False otherwise.
+TESTING_FIRST = True ## Set to true of memory test comes before generalization test, false if generalization test comes first.
+COLOR_RECONSTRUCTION = True ## set to True if color reconstruction task is included in the experiment, False otherwise.
 
 
 # ============ Define Key functions ===========
 
+### Learning trial function. This function will control the flow of each learning trial (and practice learning trials), including the encoding phase, the practice phase, and the inter-trial interval. It will also handle the presentation of stimuli and the collection of responses during the practice phase. The parameters defined above will be used to control the timing and structure of the learning trials.
+#def learning_trial(alien_image, alien_name, alien_planet, practice=False):
+    ## 1. Fixation Cross
+
+def display_fixation_cross(stage, duration):
+    fixation = win.TextStim(
+        win = win,
+        text = "+",
+        color = (1, 1, 1),
+        colorSpace = 'rgb',
+        height = 50
+    )
+    fixation_N_Frames = time_to_frame(duration) ## show fixation cross for a random duration between 0.75 and 1.25 seconds that are converted to the number of frames for timing accuracy.
+    for fixation_Frame in (fixation_N_Frames):
+        fixation.draw()
+        win.flip()
+    stage += 1
+    return stage 
+
+#def encoding_screen(alien_image, alien_color, alien_pos, alien_name, alien_planet, duration):
+
+def alien_fill_image(alien_image, alien_color, alien_pos=(0,0)):
+    display_color = alien_color ## set the display color of the alien image. 
+    fill_stim = visual.ImageStim(
+        win=win,
+        image=fill_image(ALIEN_PATH_LEARNING, alien_image),
+        pos=alien_pos,
+        size=ALIEN_SIZE,
+        units='pix',
+        interpolate=True,
+        flipVert=IMAGE_FLIP_VERT,
+        color=display_color,
+        colorSpace='rgb'
+    )
+def alien_outline_image(alien_image, alien_pos=(0,0)):
+    outline_stim = visual.ImageStim(
+        win=win,
+        image=outline_image(ALIEN_PATH_LEARNING + alien_image),
+        pos=alien_pos,
+        size=ALIEN_SIZE,
+        units='pix',
+        interpolate=True,
+        flipVert=IMAGE_FLIP_VERT
+       
+   )
+
+    
+def update_alien_fill_color(alien_stim, new_color, draggable=True):
+    alien_stim.color = new_color
+    alien_stim.draw()
+    win.flip()
+    
+
+########### Helper function #############
+
+### Color conversion functions. These functions will be used to convert between different color spaces (e.g., from CIE LCh to RGB) and to manipulate the colors of the alien stimuli based on the defined L, C, and h° values. These functions are important for ensuring that the colors of the aliens are displayed correctly on the monitor and that they match the intended color palette for the experiment.
+
+def lch_to_lab(L, C, h_deg):
+    h_rad = np.deg2rad(h_deg)
+    a = C * np.cos(h_rad)
+    b = C * np.sin(h_rad)
+    return L, a, b
 
 
+def lab_to_xyz(L, a, b):
+    fy = (L + 16.0) / 116.0
+    fx = fy + a / 500.0
+    fz = fy - b / 200.0
+
+    def f_inv(t):
+        delta = 6 / 29
+        if t > delta:
+            return t ** 3
+        return 3 * (delta ** 2) * (t - 4 / 29)
+
+    x = XN * f_inv(fx)
+    y = YN * f_inv(fy)
+    z = ZN * f_inv(fz)
+    return x, y, z
+
+
+def xyz_to_linear_rgb(x, y, z):
+    x /= 100.0
+    y /= 100.0
+    z /= 100.0
+
+    r_lin = x * 3.2406 + y * -1.5372 + z * -0.4986
+    g_lin = x * -0.9689 + y * 1.8758 + z * 0.0415
+    b_lin = x * 0.0557 + y * -0.2040 + z * 1.0570
+    return np.array([r_lin, g_lin, b_lin], dtype=float)
+
+
+def linear_to_srgb(rgb_lin):
+    out = np.empty(3, dtype=float)
+
+    for i, c in enumerate(rgb_lin):
+        if c <= 0.0031308:
+            out[i] = 12.92 * c
+        else:
+            out[i] = 1.055 * (c ** (1 / 2.4)) - 0.055
+
+    return out
+
+
+def lch_to_psychopy_rgb(L, C, h_deg):
+    L_, a_, b_ = lch_to_lab(L, C, h_deg)
+    x, y, z = lab_to_xyz(L_, a_, b_)
+    rgb_lin = xyz_to_linear_rgb(x, y, z)
+    rgb = linear_to_srgb(rgb_lin)
+    rgb = np.clip(rgb, 0.0, 1.0)
+
+    # PsychoPy rgb range is -1 to 1
+    return rgb * 2.0 - 1.0
+
+
+def time_to_frame(time_in_seconds):
+    return math.ceil(time_in_seconds * fresh_rate)
+
+def fill_image(image_path, image_name, mask_color = (0, 0, 0)):
+    fill_path = image_path + "fill_layer/" + image_name ## set the path to the fill layer images. These images should be created in advance and should be the same size as the alien images. The fill layer images should have a transparent background and the alien shape filled with white (255, 255, 255) in rgb space. This will allow us to use the color parameter in the ImageStim to change the color of the alien images during the experiment.
+    fill_rgba = np.array(Image.open(fill_path).convert("RGBA"), dtype=np.uint8)
+    h_img, w_img = fill_rgba.shape[:2]
+    fill_rgb = fill_rgba[:, :, :3]
+    fill_alpha = fill_rgba[:, :, 3]
+    white_mask = (
+    (fill_rgb[:, :, 0] >= MASK_THRESHOLD) &
+    (fill_rgb[:, :, 1] >= MASK_THRESHOLD) &
+    (fill_rgb[:, :, 2] >= MASK_THRESHOLD) &
+    (fill_alpha > 0)
+    )
+    gray_tex = np.zeros((h_img, w_img, 4), dtype=np.uint8)
+
+    shade = np.mean(fill_rgb.astype(np.float32), axis=2)
+    shade = np.clip(shade, 0, 255).astype(np.uint8)
+
+    gray_tex[:, :, 0] = np.where(white_mask, shade, 0)
+    gray_tex[:, :, 1] = np.where(white_mask, shade, 0)
+    gray_tex[:, :, 2] = np.where(white_mask, shade, 0)
+    gray_tex[:, :, 3] = np.where(white_mask, fill_alpha, 0)
+
+    gray_fill_image = Image.fromarray(gray_tex, mode="RGBA")
+    return gray_fill_image
+
+def outline_image(image_path, image_name):
+    outline_path = image_path + "outline_layer/" + image_name ## set the path to the outline layer images. These images should be created in advance and should be the same size as the alien images. The outline layer images should have a transparent background and the alien shape filled with white (255, 255, 255) in rgb space. This will allow us to use the color parameter in the ImageStim to change the color of the alien images during the experiment.
+    outline_rgba = np.array(Image.open(outline_path).convert("RGBA"), dtype=np.uint8)
+    
+    get_outline_image = Image.fromarray(outline_rgba, mode="RGBA")
+    return get_outline_image
 
 # ============ Main Script ===========
 
@@ -55,8 +250,10 @@ win = visual.Window(
     allowGUI=True,
     fullscr=False,
     waitBlanking=True,
-    useRetina=True
+    useRetina=RETINA
 )
+
+fresh_rate = win.getActualFrameRate()
 
 ### Create a keyboard object to check for key presses
 kb = keyboard.Keyboard()
