@@ -36,6 +36,20 @@ ALIEN_PATH_PRACTICE = ""
 ALIEN_PATH_GEN = ""
 IMAGE_FLIP_VERT = False ## set to True if the alien images need to be flipped vertically, False otherwise. This will ensure that the images are displayed correctly based on how they were created. 
 
+##### Encoding Screen Parameters #####
+ALIEN_POS = ()
+
+ALIEN_NAME_POS = ()
+ALIEN_NAME_COLOR = ()
+ALIEN_NAME_HEIGHT = 15
+
+ALIEN_PLANET_POS = ()
+ALIEN_PLANET_COLOR = ()
+ALIEN_PLANET_HEIGHT = 30
+
+
+
+
 ###### Color Parameters ######
 # D65 reference white
 XN = 95.047
@@ -50,7 +64,9 @@ C_VALUE = 40 ## set the chroma value for the alien colors. This will control how
 ###### Ring Parameters ######
 # Color ring parameters
 
-
+RESIDENCE_RING_THIKNESS = 2
+RESIDENCE_RING_RADIUS = 10
+RESIDENCE_RING_COLOR = ()
 
 
 
@@ -102,8 +118,6 @@ def display_fixation_cross(stage, duration):
     stage += 1
     return stage 
 
-#def encoding_screen(alien_image, alien_color, alien_pos, alien_name, alien_planet, duration):
-
 def alien_fill_image(alien_image, alien_color, alien_pos=(0,0)):
     display_color = alien_color ## set the display color of the alien image. 
     fill_stim = visual.ImageStim(
@@ -117,6 +131,7 @@ def alien_fill_image(alien_image, alien_color, alien_pos=(0,0)):
         color=display_color,
         colorSpace='rgb'
     )
+    return fill_stim
 def alien_outline_image(alien_image, alien_pos=(0,0)):
     outline_stim = visual.ImageStim(
         win=win,
@@ -125,16 +140,54 @@ def alien_outline_image(alien_image, alien_pos=(0,0)):
         size=ALIEN_SIZE,
         units='pix',
         interpolate=True,
-        flipVert=IMAGE_FLIP_VERT
-       
+        flipVert=IMAGE_FLIP_VERT      
    )
+    return outline_stim
 
     
-def update_alien_fill_color(alien_stim, new_color, draggable=True):
+def update_alien_fill_color(alien_stim, new_color):
     alien_stim.color = new_color
     alien_stim.draw()
     win.flip()
+
+
+def alien_text(text_content, text_pos, height, textColor):
+    alien_text_stim = visual.visual.TextStim(
+        win = win,
+        text = text_content,
+        color = textColor,
+        colorSpace = 'rgb',
+        height = height,
+        pos = text_pos
+    )
+    return alien_text_stim
+
+def residence_circle(draggable, radius, position, color):
     
+
+
+
+def encoding_screen_draw(alien_image, alien_color, alien_pos, alien_fake_name, alien_planet): 
+    fill_stim = alien_fill_image(alien_image, alien_color, alien_pos)
+    fill_stim.draw()
+    outline_stim = alien_outline_image(alien_image, alien_pos)
+    outline_stim.draw()
+    fake_name_stim = alien_text(alien_fake_name, ALIEN_NAME_POS, ALIEN_NAME_HEIGHT, ALIEN_NAME_COLOR)
+    fake_name_stim.draw()
+    planet_text_stim = alien_text(alien_planet, ALIEN_PLANET_POS, ALIEN_PLANET_HEIGHT, ALIEN_PLANET_COLOR )
+    planet_text_stim.draw()
+
+def encoding_screen_present(stage, alien_image, alien_color, alien_pos, alien_fake_name, alien_planet,duration): 
+    nFrames = time_to_frame(duration)
+    for frame in range(nFrames):
+        encoding_screen_draw(alien_image, alien_color, alien_pos, alien_fake_name, alien_planet)
+        win.flip()
+
+    stage+=1
+    return stage
+    
+
+
 
 ########### Helper function #############
 
@@ -197,10 +250,106 @@ def lch_to_psychopy_rgb(L, C, h_deg):
     # PsychoPy rgb range is -1 to 1
     return rgb * 2.0 - 1.0
 
+### Geometry functions. These functions handle the conversion between polar, cartesian. 
+##These two functions handle the conversion between polar, cartesian. 
 
+def pol_to_cart(r, ang_deg):
+    """
+    Convert polar coordinates to Cartesian coordinates.
+
+    Angle is in degrees.
+    0 degrees points right.
+    90 degrees points up.
+    """
+    a = np.deg2rad(ang_deg)
+    return np.array([r * np.cos(a), r * np.sin(a)], dtype=float)
+
+def angle_from_xy(x, y, center=(0.0, 0.0)):
+    """
+    Convert an x/y mouse position to a screen angle in degrees.
+    """
+    dx = x - center[0]
+    dy = y - center[1]
+
+    ang = np.degrees(np.arctan2(dy, dx))
+
+    if ang < 0:
+        ang += 360
+
+    return ang
+
+## check if the mouse position (pt) is within a rectangle (e.g., the submit button) or on the edge. 
+def point_in_rect(pt, center, w, h):
+    x, y = pt ## get the x and y values of the position pt
+    cx, cy = center # center is the center of the given rectangle
+
+    return (
+        cx - w / 2 <= x <= cx + w / 2 and
+        cy - h / 2 <= y <= cy + h / 2
+    )
+
+## calculate the distance from the point(xy)
+def distance_to_center(x, y, center):
+    return math.hypot(x - center[0], y - center[1])
+
+## update the position of selector (the bar on the ring that can select the color or position). It is used to draw the line of bar with the starting position and ending position. 
+def update_selector_geometry(ring_center, inner_ring, outer_ring, selector_angle):
+    eps = 1.0 # The epsillon offset to keep the selector bar within the color ring
+
+    p1 = np.array(ring_center) + pol_to_cart(
+        inner_ring + eps,
+        selector_angle
+    )
+
+    p2 = np.array(ring_center) + pol_to_cart(
+        outer_ring - eps,
+        selector_angle
+    )
+    return p1,p2
+
+
+## This function checks whether the mouse is on the selector bar when draggable
+def mouse_on_ring(mouse_pos, ring_center, inner_ring, outer_ring):
+    d = distance_to_center(
+        mouse_pos[0],
+        mouse_pos[1],
+        ring_center
+    )
+    return inner_ring <= d <= outer_ring
+
+## This function converts the selection (polar system) to the rgb value that can be used for Psychopy drawing
+def update_selected_color_from_angle(selector_angle, hue_rgb_psy, ring_rotation = 0):
+  
+    selected_hue = (selector_angle - ring_rotation) % 360
+
+    hue_idx = int(round(selected_hue)) % 360
+    current_hue_idx = hue_idx
+
+    selected_rgb = hue_rgb_psy[hue_idx]
+    return current_hue_idx, selected_rgb
+
+
+## This function updates the actions when mouse is clicked left
+def mouse_press_on_the_ring(mouse, mouse_on_ring, ring_center):
+    mouse_pos = mouse.getPos()
+    left = mouse.getPressed(getTime=False)[0] #getPressed return the state of left, middle, and right buttons. It typically return a list with three binary digits, 0 not pressed, 1 pressed, for example [1, 0, 0]
+    if left and mouse_on_ring:
+        selector_angle = angle_from_xy(mouse_pos[0], mouse_pos[1], ring_center)
+        return left, selector_angle
+    else:
+        return left
+
+
+## This function precomputes the hue color, to allow for smooth updating of colors
+def create_hue_rgb_psy():
+    hue_rgb_psy = np.array([lch_to_psychopy_rgb(L_VALUE, C_VALUE, hh) for hh in range(360)]),
+    return hue_rgb_psy
+
+## This function coverts the time_duration to frames, to allowed for more accurate time control
 def time_to_frame(time_in_seconds):
     return math.ceil(time_in_seconds * fresh_rate)
 
+## This function generates the initial fill image
 def fill_image(image_path, image_name, mask_color = (0, 0, 0)):
     fill_path = image_path + "fill_layer/" + image_name ## set the path to the fill layer images. These images should be created in advance and should be the same size as the alien images. The fill layer images should have a transparent background and the alien shape filled with white (255, 255, 255) in rgb space. This will allow us to use the color parameter in the ImageStim to change the color of the alien images during the experiment.
     fill_rgba = np.array(Image.open(fill_path).convert("RGBA"), dtype=np.uint8)
@@ -226,12 +375,16 @@ def fill_image(image_path, image_name, mask_color = (0, 0, 0)):
     gray_fill_image = Image.fromarray(gray_tex, mode="RGBA")
     return gray_fill_image
 
+## This function generates outline image. 
 def outline_image(image_path, image_name):
     outline_path = image_path + "outline_layer/" + image_name ## set the path to the outline layer images. These images should be created in advance and should be the same size as the alien images. The outline layer images should have a transparent background and the alien shape filled with white (255, 255, 255) in rgb space. This will allow us to use the color parameter in the ImageStim to change the color of the alien images during the experiment.
     outline_rgba = np.array(Image.open(outline_path).convert("RGBA"), dtype=np.uint8)
     
     get_outline_image = Image.fromarray(outline_rgba, mode="RGBA")
     return get_outline_image
+
+
+
 
 # ============ Main Script ===========
 
