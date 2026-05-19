@@ -67,7 +67,10 @@ C_VALUE = 40 ## set the chroma value for the alien colors. This will control how
 RESIDENCE_RING_THIKNESS = 2
 RESIDENCE_RING_RADIUS = 10
 RESIDENCE_RING_COLOR = ()
-
+RESIDENCE_RING_EDGES = 512 #the number of line segments to draw the circle shape, higher number means smoother and rounder
+RESIDENCE_BAR_WIDTH = 0.003
+RESIDENCE_BAR_LENGTH = 0.1
+RESIDENCE_BAR_COLOR = 'black'
 
 
 ###### MODE PARAMETERS ######
@@ -162,12 +165,31 @@ def alien_text(text_content, text_pos, height, textColor):
     )
     return alien_text_stim
 
-def residence_circle(draggable, radius, position, color):
+def residence_circle(position):
+    residence_circle_stim = visual.Circle(
+        win = win,
+        radius = RESIDENCE_RING_RADIUS,
+        edges = RESIDENCE_RING_EDGES,
+        lineColor = RESIDENCE_RING_COLOR,
+        fillColor = None,
+        lineWidth = RESIDENCE_RING_THIKNESS,
+        interpolate = True,
+        pos = position
+    )
+    return residence_circle_stim
     
+def residence_circle_bar():
+    residence_bar_stim = visual.Rect(
+        win = win,
+        width = RESIDENCE_BAR_WIDTH,
+        height = RESIDENCE_BAR_LENGTH,
+        fillColor = RESIDENCE_BAR_COLOR,
+        lineColor = RESIDENCE_BAR_COLOR,
+        interpolate = True)
+    return residence_bar_stim
 
 
-
-def encoding_screen_draw(alien_image, alien_color, alien_pos, alien_fake_name, alien_planet): 
+def encoding_screen_draw(alien_image, alien_color, alien_pos, alien_fake_name, alien_planet, residence_ring_pos ,residence_angle): 
     fill_stim = alien_fill_image(alien_image, alien_color, alien_pos)
     fill_stim.draw()
     outline_stim = alien_outline_image(alien_image, alien_pos)
@@ -176,17 +198,25 @@ def encoding_screen_draw(alien_image, alien_color, alien_pos, alien_fake_name, a
     fake_name_stim.draw()
     planet_text_stim = alien_text(alien_planet, ALIEN_PLANET_POS, ALIEN_PLANET_HEIGHT, ALIEN_PLANET_COLOR )
     planet_text_stim.draw()
+    residence_circle_stim = residence_circle(residence_ring_pos)
+    residence_circle_stim.draw()
+    residence_bar_stim = residence_circle_bar()
+    update_residence_bar(residence_circle_stim, residence_angle)
+    residence_bar_stim.draw()
 
-def encoding_screen_present(stage, alien_image, alien_color, alien_pos, alien_fake_name, alien_planet,duration): 
+def encoding_screen_present(stage, alien_image, alien_color, alien_pos, alien_fake_name, alien_planet, duration, residence_ring_pos,residence_angle): 
     nFrames = time_to_frame(duration)
     for frame in range(nFrames):
-        encoding_screen_draw(alien_image, alien_color, alien_pos, alien_fake_name, alien_planet)
+        encoding_screen_draw(alien_image, alien_color, alien_pos, alien_fake_name, alien_planet, residence_ring_pos ,residence_angle)
         win.flip()
 
     stage+=1
     return stage
     
-
+def blank_screen_present(stage,duration):
+    nFrames = time_to_frame(duration)
+    for frame in range(nFrames):
+        emty
 
 
 ########### Helper function #############
@@ -292,8 +322,8 @@ def point_in_rect(pt, center, w, h):
 def distance_to_center(x, y, center):
     return math.hypot(x - center[0], y - center[1])
 
-## update the position of selector (the bar on the ring that can select the color or position). It is used to draw the line of bar with the starting position and ending position. 
-def update_selector_geometry(ring_center, inner_ring, outer_ring, selector_angle):
+## update the position of selector (the bar on the ring that can select the color). It is used to draw the line of bar with the starting position and ending position. 
+def update_color_selector_geometry(ring_center, inner_ring, outer_ring, selector_angle):
     eps = 1.0 # The epsillon offset to keep the selector bar within the color ring
 
     p1 = np.array(ring_center) + pol_to_cart(
@@ -328,6 +358,12 @@ def update_selected_color_from_angle(selector_angle, hue_rgb_psy, ring_rotation 
     selected_rgb = hue_rgb_psy[hue_idx]
     return current_hue_idx, selected_rgb
 
+def update_residence_bar(bar, angle):
+    # Bar midpoint exactly on ring
+    x, y = pol_to_cart(angle, RESIDENCE_RING_RADIUS)
+    bar.pos = (x, y)
+    # Radial orientation
+    bar.ori = 90 - angle
 
 ## This function updates the actions when mouse is clicked left
 def mouse_press_on_the_ring(mouse, mouse_on_ring, ring_center):
@@ -338,6 +374,7 @@ def mouse_press_on_the_ring(mouse, mouse_on_ring, ring_center):
         return left, selector_angle
     else:
         return left
+
 
 
 ## This function precomputes the hue color, to allow for smooth updating of colors
