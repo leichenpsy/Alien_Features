@@ -14,7 +14,7 @@ MONITOR = 'AlienMemoryMonitor' ## set the name of the monitor that you created w
 WIN_SIZE = ()
 WIN_BG = () ## set window background color in rbg format, e.g. (0, 0, 0) for black, (1, 1, 1) for white, (-1, -1, -1) for black in rgb space
 RETINA = True ## set to True if using a retina display, False otherwise. This will ensure that the stimuli are displayed at the correct size on retina displays, which have a higher pixel density.
-
+Allow_escape = True
 
 ##### Learning Trial Parameters #####
 ENCODING_TIME = 4.0 ## time to show each alien during encoding phase in seconds
@@ -234,7 +234,7 @@ def blank_screen_present(stage,duration):
     stage += 1
     return stage
 
-def planetTestScreen(alien, planet):
+def draw_test_labels(alien):
     test_alien = alien_outline_image(alien, TEST_ALIEN_POS)
     test_alien.draw()
     labels_pos = calculate_pos()
@@ -244,6 +244,7 @@ def planetTestScreen(alien, planet):
         test_label = visual.TextStim(
         text = labels_list[i],
         pos = labels_pos[i])
+        test_label.draw()
 
     
 
