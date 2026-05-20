@@ -52,6 +52,9 @@ TEST_ALIEN_POS = (- WIN_SIZE[0] * 1/3, 0)
 TEST_ALIEN_NAME_POS = (TEST_ALIEN_POS[0], ALIEN_NAME_POS[1])
 TEST_QUESTION_HEIGHT = ALIEN_PLANET_HEIGHT
 TEST_QUESTION_COLOR = ()
+TEST_QUESTION_POS = (WIN_SIZE[0] * 1/3, WIN_SIZE[1] * 1/3)
+PLANET_TEST_QUESTION = 'Where does this alien come from?'
+
 TEST_LABEL_SIZE = ()
 TEST_LABEL_DISTANCE_TO_CENTER = ()
 TEST_LABEL_CENTER = ()
@@ -234,17 +237,42 @@ def blank_screen_present(stage,duration):
     stage += 1
     return stage
 
-def draw_test_labels(alien):
-    test_alien = alien_outline_image(alien, TEST_ALIEN_POS)
-    test_alien.draw()
+def test_labels():
     labels_pos = calculate_pos()
+    labels_stim = []
     labels_list = ALIEN_PLANETS
     np.random.shuffle(labels_list)
     for i in range(4):
+        pos = labels_pos[i]
         test_label = visual.TextStim(
         text = labels_list[i],
-        pos = labels_pos[i])
-        test_label.draw()
+        pos = pos
+        )
+        labels_stim.append((test_label,pos))
+    return labels_stim
+
+def detect_label_selection(mouse, labels_stim):
+    mouse.clickRest()
+    if mouse.getPress()[0]:
+        pt = mouse.getPos()
+        click_label = False 
+        selected_label = any(point_in_rect(pt,labels_stim[1]), TEST_LABEL_SIZE[0], TEST_LABEL_SIZE[1])
+
+def planet_test_screen(alien, planet, alien_name):
+    test_alien = alien_outline_image(alien, TEST_ALIEN_POS)
+    test_alien.draw()
+    test_alien_name = visual.TextStim(
+        text = alien_name,
+        pos = TEST_ALIEN_NAME_POS,
+        height = ALIEN_NAME_HEIGHT,
+        color = ALIEN_NAME_COLOR
+    )
+    test_questions = PLANET_TEST_QUESTION
+    test_alien_name.draw()
+    test_labels = test_labels()
+    for label in test_labels:
+        label[0].draw()
+
 
     
 
