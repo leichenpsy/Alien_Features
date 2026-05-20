@@ -37,7 +37,7 @@ ALIEN_PATH_GEN = ""
 IMAGE_FLIP_VERT = False ## set to True if the alien images need to be flipped vertically, False otherwise. This will ensure that the images are displayed correctly based on how they were created. 
 
 ##### Encoding Screen Parameters #####
-ALIEN_POS = ()
+ALIEN_POS = (0,0)
 
 ALIEN_NAME_POS = ()
 ALIEN_NAME_COLOR = ()
@@ -46,6 +46,17 @@ ALIEN_NAME_HEIGHT = 15
 ALIEN_PLANET_POS = ()
 ALIEN_PLANET_COLOR = ()
 ALIEN_PLANET_HEIGHT = 30
+
+##### Testing Screen Parameters ######
+TEST_ALIEN_POS = (- WIN_SIZE[0] * 1/3, 0)
+TEST_ALIEN_NAME_POS = (TEST_ALIEN_POS[0], ALIEN_NAME_POS[1])
+TEST_QUESTION_HEIGHT = ALIEN_PLANET_HEIGHT
+TEST_QUESTION_COLOR = ()
+TEST_LABEL_SIZE = ()
+TEST_LABEL_DISTANCE_TO_CENTER = ()
+TEST_LABEL_CENTER = ()
+
+
 
 
 
@@ -121,8 +132,7 @@ def display_fixation_cross(stage, duration):
     stage += 1
     return stage 
 
-def alien_fill_image(alien_image, alien_color, alien_pos=(0,0)):
-    display_color = alien_color ## set the display color of the alien image. 
+def alien_fill_image(alien_image, alien_pos=(0,0)):
     fill_stim = visual.ImageStim(
         win=win,
         image=fill_image(ALIEN_PATH_LEARNING, alien_image),
@@ -131,7 +141,6 @@ def alien_fill_image(alien_image, alien_color, alien_pos=(0,0)):
         units='pix',
         interpolate=True,
         flipVert=IMAGE_FLIP_VERT,
-        color=display_color,
         colorSpace='rgb'
     )
     return fill_stim
@@ -155,7 +164,7 @@ def update_alien_fill_color(alien_stim, new_color):
 
 
 def alien_text(text_content, text_pos, height, textColor):
-    alien_text_stim = visual.visual.TextStim(
+    alien_text_stim = visual.TextStim(
         win = win,
         text = text_content,
         color = textColor,
@@ -190,7 +199,8 @@ def residence_circle_bar():
 
 
 def encoding_screen_draw(alien_image, alien_color, alien_pos, alien_fake_name, alien_planet, residence_ring_pos ,residence_angle): 
-    fill_stim = alien_fill_image(alien_image, alien_color, alien_pos)
+    fill_stim = alien_fill_image(alien_image, alien_pos)
+    update_alien_fill_color(fill_stim, alien_color)
     fill_stim.draw()
     outline_stim = alien_outline_image(alien_image, alien_pos)
     outline_stim.draw()
@@ -214,9 +224,28 @@ def encoding_screen_present(stage, alien_image, alien_color, alien_pos, alien_fa
     return stage
     
 def blank_screen_present(stage,duration):
+    emptyText = visual.TextStim(
+        win = win,
+        text = "")
     nFrames = time_to_frame(duration)
     for frame in range(nFrames):
-        emty
+        emptyText.draw()
+        win.flip()
+    stage += 1
+    return stage
+
+def planetTestScreen(alien, planet):
+    test_alien = alien_outline_image(alien, TEST_ALIEN_POS)
+    test_alien.draw()
+    labels_pos = calculate_pos()
+    labels_list = ALIEN_PLANETS
+    np.random.shuffle(labels_list)
+    for i in range(4):
+        test_label = visual.TextStim(
+        text = labels_list[i],
+        pos = labels_pos[i])
+
+    
 
 
 ########### Helper function #############
@@ -421,7 +450,17 @@ def outline_image(image_path, image_name):
     return get_outline_image
 
 
-
+## This function calculate the position of labels 
+def calculate_pos():
+    center_x, center_y = TEST_LABEL_CENTER
+    distance_x, distance_y = TEST_LABEL_DISTANCE_TO_CENTER
+    parameters = [(-1,1),(-1,-1),(1,-1),(1,1)]
+    pos = []
+    for i in range(4):
+        pos_x = center_x + parameters[i] * (distance_x + 1/2 * TEST_LABEL_SIZE[0])
+        pos_y = center_y + parameters[i] * (distance_y + 1/2 * TEST_LABEL_SIZE[1])
+        pos.append((pos_x, pos_y))
+    return pos
 
 # ============ Main Script ===========
 
