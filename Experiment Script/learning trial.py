@@ -2,12 +2,15 @@
 
 # ============Import Modules===========
 
-from psychopy import monitors, visual, event, core
+from psychopy import monitors, visual, event, core, gui
 from psychopy.hardware import keyboard
+import pandas as pd
 import numpy as np
 import random
 import math
 from PIL import Image
+from datetime import datetime
+
 
 # ============ Define parameters ===========
 MONITOR = 'AlienMemoryMonitor' ## set the name of the monitor that you created with create_monitor.py
@@ -53,13 +56,14 @@ TEST_ALIEN_NAME_POS = (TEST_ALIEN_POS[0], ALIEN_NAME_POS[1])
 TEST_QUESTION_HEIGHT = ALIEN_PLANET_HEIGHT
 TEST_QUESTION_COLOR = ()
 TEST_QUESTION_POS = (WIN_SIZE[0] * 1/3, WIN_SIZE[1] * 1/3)
-PLANET_TEST_QUESTION = 'Where does this alien come from?'
-
+PLANET_TEST_QUESTION = 'Where does this alien come from ?'
+COLOR_TEST_QUESTION = "What is the color of this alien ?"
+RESIDENCE_TEST_QUESTION = "What is the residence place of this alien ?"
 TEST_LABEL_SIZE = ()
 TEST_LABEL_DISTANCE_TO_CENTER = ()
-TEST_LABEL_CENTER = ()
-
-
+TEST_LABEL_CENTER = (WIN_SIZE[0] * 1/3, 0)
+TEST_SUBMIT_POS = (WIN_SIZE[0] * 1/3, - WIN_SIZE[1]*3/4)
+TEST_SUBMIT_SIZE = ()
 
 
 
@@ -77,7 +81,16 @@ C_VALUE = 40 ## set the chroma value for the alien colors. This will control how
 
 ###### Ring Parameters ######
 # Color ring parameters
+TEST_RING_CENTER = (WIN_SIZE[0] * 1/3, 0)
+COLOR_RING_RADIUS = 10
+COLOR_RING_WIDTH = 2
+COLOR_RING_ROTATION = True
+COLOR_RING_SEGMENTS = 360
+SELECTOR_COLOR = 'white'
 
+
+
+# Residence ring parameters
 RESIDENCE_RING_THIKNESS = 2
 RESIDENCE_RING_RADIUS = 10
 RESIDENCE_RING_COLOR = ()
@@ -115,6 +128,41 @@ COLOR_RECONSTRUCTION = True ## set to True if color reconstruction task is inclu
 
 
 # ============ Define Key functions ===========
+
+### record function
+def record_response(
+    data,
+    trial_no,
+    block,
+    trial_start_time,
+    correct_response,
+    stimuli,
+    response,
+    rt,
+    trial_end_time,
+    initial_hue = None,
+    ring_rotation = None,
+    initial_residence = None,
+):
+    trial_data = {
+        "participant_id": exp_info["participant_id"],
+        "group": exp_info["group"],
+        "condition": exp_info["condition"],
+        "session": exp_info["session"],
+        "trial_no": trial_no,
+        "block": block,
+        "trial_start_time": trial_start_time,
+        "correct_response": correct_response,
+        "stimuli": stimuli,
+        "response": response,
+        "rt": rt,
+        "initial_hue": initial_hue,
+        "ring_rotation": ring_rotation,
+        "initial_residence":initial_residence,
+        "trial_end_time": trial_end_time
+    }
+
+    data.append(trial_data)
 
 ### Learning trial function. This function will control the flow of each learning trial (and practice learning trials), including the encoding phase, the practice phase, and the inter-trial interval. It will also handle the presentation of stimuli and the collection of responses during the practice phase. The parameters defined above will be used to control the timing and structure of the learning trials.
 #def learning_trial(alien_image, alien_name, alien_planet, practice=False):
@@ -251,14 +299,22 @@ def test_labels():
         labels_stim.append((test_label,pos))
     return labels_stim
 
-def detect_label_selection(mouse, labels_stim):
-    mouse.clickRest()
-    if mouse.getPress()[0]:
-        pt = mouse.getPos()
-        click_label = False 
-        selected_label = any(point_in_rect(pt,labels_stim[1]), TEST_LABEL_SIZE[0], TEST_LABEL_SIZE[1])
+def draw_test_labels(stim): #draw all four labels
+    labels_stim = stim
+    for i in range(4):
+        label = labels_stim[i][0]
+        label.draw()
 
-def planet_test_screen(alien, planet, alien_name):
+
+def detect_label_selection(mouse, labels_stim):   
+    pt = mouse.getPos()
+    click_label = False 
+    selected_label = next((label for label in labels_stim if point_in_rect(pt,label[1], TEST_LABEL_SIZE[0], TEST_LABEL_SIZE[1])), None)
+    if selected_label is not None:
+        click_label = True
+    return click_label, selected_label
+
+def planet_test_screen(practice,alien, planet, alien_name, mouse):
     test_alien = alien_outline_image(alien, TEST_ALIEN_POS)
     test_alien.draw()
     test_alien_name = visual.TextStim(
@@ -267,17 +323,362 @@ def planet_test_screen(alien, planet, alien_name):
         height = ALIEN_NAME_HEIGHT,
         color = ALIEN_NAME_COLOR
     )
-    test_questions = PLANET_TEST_QUESTION
     test_alien_name.draw()
-    test_labels = test_labels()
-    for label in test_labels:
-        label[0].draw()
+    test_question = PLANET_TEST_QUESTION
+    test_question_stim = visual.TextStim(
+        text = test_question,
+        pos = TEST_QUESTION_POS,
+        color = TEST_QUESTION_COLOR,
+        height = TEST_QUESTION_HEIGHT
+    )
+    test_question_stim.draw()
+    labels_stim = test_labels()
+    draw_test_labels(labels_stim)
+    rt_clock = core.Clock()
+    win.callOnFlip(rt_clock.reset)
+    win.flip()
+    trial_start_time = now_time()
+    while True:
+        test_alien.draw()
+        test_alien_name.draw()
+        test_question_stim.draw()
+        draw_test_labels(labels_stim)
+        win.flip()
+        mouse.clickRest()
+        if mouse.getPress()[0]:
+            click_label, selected_label = detect_label_selection(mouse, labels_stim)
+            if click_label:
+                selected_planet = selected_label.text
+                rt = rt_clock.getTime()
+                trial_end_time = now_time()
+                record_response(data, trial_no, block, trial_start_time, planet, alien, selected_planet,rt, trial_end_time)
+                break
+    if practice:
+        practice_no = +1
+        return practice_no
+    
+def create_color_ring(
+    win,
+    ring_center,
+    ring_radius,
+    ring_width,
+    hue_rgb_psy,
+    ring_rotation=0.0,
+    n_segments=360
+):
+    """
+    Create a circular color ring made from 1-degree wedge segments.
 
+    Returns
+    -------
+    ring_sectors : list
+        List of PsychoPy ShapeStim ring segments.
+
+    inner_r : float
+        Inner radius of the ring.
+
+    outer_r : float
+        Outer radius of the ring.
+    """
+
+    inner_r = ring_radius - ring_width / 2
+    outer_r = ring_radius + ring_width / 2
+
+    ring_sectors = []
+
+    for i in range(n_segments):
+        col = hue_rgb_psy[i % len(hue_rgb_psy)]
+
+        a1 = i + ring_rotation
+        a2 = i + 1 + ring_rotation
+
+        p1o = np.array(ring_center) + pol_to_cart(outer_r, a1)
+        p2o = np.array(ring_center) + pol_to_cart(outer_r, a2)
+        p2i = np.array(ring_center) + pol_to_cart(inner_r, a2)
+        p1i = np.array(ring_center) + pol_to_cart(inner_r, a1)
+
+        sector = visual.ShapeStim(
+            win=win,
+            vertices=np.array([p1o, p2o, p2i, p1i]),
+            fillColor=col,
+            lineColor=col,
+            lineWidth=0,
+            colorSpace='rgb',
+            closeShape=True,
+            interpolate=True
+        )
+
+        ring_sectors.append(sector)
+
+    return ring_sectors, inner_r, outer_r
+
+def draw_color_ring(ring_sectors):
+    for sector in ring_sectors:
+        sector.draw()
+
+def color_test_screen(practice, alien, color, alien_name, mouse):
+    fill_stim = alien_fill_image(alien, TEST_ALIEN_POS)
+    outline_stim = alien_outline_image(alien, TEST_ALIEN_POS)
+    test_alien_name = visual.TextStim(
+        text = alien_name,
+        pos = TEST_ALIEN_NAME_POS,
+        height = ALIEN_NAME_HEIGHT,
+        color = ALIEN_NAME_COLOR
+    )
+
+    test_question = COLOR_TEST_QUESTION
+    test_question_stim = visual.TextStim(
+        text = test_question,
+        pos = TEST_QUESTION_POS,
+        color = TEST_QUESTION_COLOR,
+        height = TEST_QUESTION_HEIGHT
+    )
+    
+
+    initial_hue = int(round(np.random.uniform(0, 360)))
+    ring_rotation = int(round(np.random.uniform(0, 360)))
+
+    initial_angle = (initial_hue + ring_rotation) % 360
+    hue_rgb_psy = create_hue_rgb_psy()
+    ring_sectors, INNER_R, OUTER_R = create_color_ring(win, TEST_RING_CENTER, COLOR_RING_RADIUS, COLOR_RING_WIDTH, hue_rgb_psy, ring_rotation, COLOR_RING_SEGMENTS)
+    outer_outline = visual.Circle(
+        win = win,
+        radius = OUTER_R,
+        pos = TEST_RING_CENTER,
+        edges = 256,
+        lineColor = (0.2, 0.2, 0.2),
+        lineWidth = 1,
+        fillColor = None,
+        colorSpace = 'rgb'
+    )
+    inner_outline = visual.Circle(
+        win = win,
+        radius = INNER_R,
+        pos = TEST_RING_CENTER,
+        edges = 256,
+        lineColor = WIN_BG,
+        lineWidth = 2,
+        fillColor = None,
+        colorSpace = 'rgb'
+    )
+    selector_line = visual.Line(
+        win = win,
+        start = (0, 0),
+        end = (0, 0),
+        lineColor = SELECTOR_COLOR,
+        lineWidth =4
+    )
+    submit_rect = visual.Rect(
+        win = win,
+        width = TEST_SUBMIT_SIZE[0],
+        height = TEST_SUBMIT_SIZE[1],
+        pos = TEST_SUBMIT_POS,
+        fillColor = (-0.35, -0.35, -0.35),
+        lineColor = 'white',
+        lineWidth = 2,
+        colorSpace = 'rgb'
+    )
+    submit_text = visual.TextStim(
+        win = win,
+        text = 'Confirm',
+        pos = TEST_SUBMIT_POS,
+        color = 'white',
+        height = 28
+    )
+    p1, p2 = update_color_selector_geometry(TEST_RING_CENTER, INNER_R, OUTER_R, initial_angle)
+    selector_line.start = p1
+    selector_line.end = p2
+    initial_rgb = hue_rgb_psy[initial_hue]
+    update_alien_fill_color(fill_stim, initial_rgb)
+    fill_stim.draw()
+    outline_stim.draw()
+    test_alien_name.draw()
+    test_question_stim.draw()
+    draw_color_ring(ring_sectors)
+    outer_outline.draw()
+    inner_outline.draw()
+    selector_line.draw()
+    submit_rect.draw()
+    submit_text.draw()
+    rt_clock = core.Clock()
+    win.callOnFlip(rt_clock.reset)
+    win.flip()
+    trial_start_time = now_time()
+    submitted = False
+    current_hue_idx = initial_hue
+    dragging = False
+    prev_left = False
+
+    while not submitted:
+        mouse.clickRest()
+        pt = mouse.getPos()
+        left = mouse.getPressed()[0]
+
+        new_press = left and not prev_left
+        new_release = prev_left and not left
+
+        if new_press:
+            if point_in_rect(pt, TEST_SUBMIT_POS, TEST_SUBMIT_SIZE[0], TEST_SUBMIT_SIZE[1]):
+                submitted = True
+            elif mouse_on_ring(pt): 
+                dragging = True
+                angle = angle_from_xy(pt[0],pt[1], TEST_RING_CENTER)
+                p1, p2 = update_color_selector_geometry(TEST_RING_CENTER, INNER_R, OUTER_R, angle)
+                selector_line.start = p1
+                selector_line.end = p2
+                current_hue_idx, selected_rgb = update_selected_color_from_angle(angle,hue_rgb_psy,ring_rotation)
+                update_alien_fill_color(fill_stim, selected_rgb)      
+        if dragging and left:
+            angle = angle_from_xy(pt[0],pt[1], TEST_RING_CENTER)
+            p1, p2 = update_color_selector_geometry(TEST_RING_CENTER, INNER_R, OUTER_R, angle)
+            selector_line.start = p1
+            selector_line.end = p2
+            current_hue_idx, selected_rgb = update_selected_color_from_angle(angle,hue_rgb_psy,ring_rotation)
+            update_alien_fill_color(fill_stim, selected_rgb)      
+        if dragging and new_release:
+            dragging = False
+
+        prev_left = left
+        fill_stim.draw()
+        outline_stim.draw()
+        test_alien_name.draw()
+        test_question_stim.draw()
+        draw_color_ring(ring_sectors)
+        outer_outline.draw()
+        inner_outline.draw()
+        selector_line.draw()
+        submit_rect.draw()
+        submit_text.draw()
+        win.flip()
+    selected_hue = current_hue_idx
+    rt = rt_clock.getTime()
+    trial_end_time = now_time()
+    record_response(data, trial_no, block, trial_start_time, color, alien, selected_hue, rt, trial_end_time, initial_hue, ring_rotation)
+    if practice:
+        practice_no += 1
+
+def residence_test_screen(practice, alien, residence_angle, alien_name, mouse):
+    outline_stim = alien_outline_image(alien, TEST_ALIEN_POS)
+    test_alien_name = visual.TextStim(
+        text = alien_name,
+        pos = TEST_ALIEN_NAME_POS,
+        height = ALIEN_NAME_HEIGHT,
+        color = ALIEN_NAME_COLOR
+    )
+
+    test_question = RESIDENCE_TEST_QUESTION
+    test_question_stim = visual.TextStim(
+        text = test_question,
+        pos = TEST_QUESTION_POS,
+        color = TEST_QUESTION_COLOR,
+        height = TEST_QUESTION_HEIGHT
+    )
+
+    residence_ring_stim = residence_circle(TEST_RING_CENTER)
+    initial_bar_angle = int(round(np.random.uniform(0, 360)))
+    residence_bar_stim = residence_circle_bar()
+    update_residence_bar(residence_bar_stim,initial_bar_angle)
+
+    submit_rect = visual.Rect(
+        win = win,
+        width = TEST_SUBMIT_SIZE[0],
+        height = TEST_SUBMIT_SIZE[1],
+        pos = TEST_SUBMIT_POS,
+        fillColor = (-0.35, -0.35, -0.35),
+        lineColor = 'white',
+        lineWidth = 2,
+        colorSpace = 'rgb'
+    )
+    submit_text = visual.TextStim(
+        win = win,
+        text = 'Confirm',
+        pos = TEST_SUBMIT_POS,
+        color = 'white',
+        height = 28
+    )
+
+    outline_stim.draw()
+    test_alien_name.draw()
+    test_question_stim.draw()
+    residence_ring_stim.draw()
+    residence_bar_stim.draw()
+    submit_rect.draw()
+    submit_text.draw()
+
+    rt_clock = core.Clock()
+    win.callOnFlip(rt_clock.reset)
+    win.flip()
+    trial_start_time = now_time()
+    submitted = False
+    current_angle = initial_bar_angle
+    dragging = False
+    prev_left = False
+
+    while not submitted:
+        mouse.clickRest()
+        pt = mouse.getPos()
+        mx = pt[0]
+        my = pt[1]
+
+        bar_pos = residence_bar_stim.pos
+        bx = bar_pos[0]
+        by = bar_pos[1]
+
+        mouse_on_submit = False
+        distance_to_bar = math.sqrt((mx - bx) ** 2 + (my - by) ** 2)
+        grab_radius = max(RESIDENCE_BAR_LENGTH  * 0.8, 0.03)
+        left = mouse.getPressed()[0]
+
+        new_press = left and not prev_left
+        new_release = prev_left and not left
+
+        if new_press:
+            if point_in_rect(pt, TEST_SUBMIT_POS, TEST_SUBMIT_SIZE[0], TEST_SUBMIT_SIZE[1]):
+                submitted = True
+                mouse_on_submit = True
+            elif distance_to_bar <= grab_radius and not mouse_on_submit:
+                dragging = True
+        if dragging and left:
+            current_angle = angle_from_xy(mx, my, TEST_RING_CENTER)
+            update_residence_bar(residence_bar_stim, current_angle)
+        if dragging and new_release:
+            dragging = False
+
+        prev_left = left
+        outline_stim.draw()
+        test_alien_name.draw()
+        test_question_stim.draw()
+        residence_ring_stim.draw()
+        residence_bar_stim.draw()
+        submit_rect.draw()
+        submit_text.draw()
+        win.flip()
+
+    selected_residence = current_angle
+    rt = rt_clock.getTime()
+    trial_end_time = now_time()
+    record_response(data, trial_no, block, trial_start_time, residence_angle, alien, selected_residence, rt, trial_end_time, initial_residence = initial_bar_angle)
+    if practice:
+        practice_no += 1
+        
+def practice_flow(data, trial_no, block, alien, color, planet, residence, practice_order):
+    practice_no = 0
+    
 
     
 
 
 ########### Helper function #############
+
+### Timestamp functions
+def now_date():
+    return datetime.now().strftime("%Y-%m-%d")
+
+def now_time():
+    return datetime.now().strftime("%H:%M:%S")
+
+def now_datetime():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 ### Color conversion functions. These functions will be used to convert between different color spaces (e.g., from CIE LCh to RGB) and to manipulate the colors of the alien stimuli based on the defined L, C, and h° values. These functions are important for ensuring that the colors of the aliens are displayed correctly on the monitor and that they match the intended color palette for the experiment.
 
@@ -492,6 +893,20 @@ def calculate_pos():
     return pos
 
 # ============ Main Script ===========
+
+exp_info = {
+    "participant_id": "",
+    "group": ["1", "2", "3"], # 1. color 2. residence 3. no rule
+    "condition": ["A", "B"], # A. Immediate Test B. Delayed Test
+    "session": "1" # Session 1 includes learning and working memory test 2. Session 2 includes main memory test, generalization and color construction
+}
+dlg = gui.DlgFromDict(exp_info, title="Participant Information")
+if not dlg.OK:
+    core.quit()
+
+exp_info["experiment_date"] = now_date()
+exp_info["experiment_start_time"] = now_time()
+exp_info["experiment_start_datetime"] = now_datetime()
 
 ### Create the monitor object (this will load the properties from the saved monitor object created with create_monitor.py)
 my_monitor = monitors.Monitor(MONITOR)
