@@ -21,11 +21,11 @@ Allow_escape = True
 
 ##### Learning Trial Parameters #####
 ENCODING_TIME = 4.0 ## time to show each alien during encoding phase in seconds
-BLANK_TIME = 0.5 ## time to show blank screen between encoding and practice phases in seconds
+BLANK_TIME = 0.5 ## time to show blank screen between encoding and practice phases in seconds, and between practice and feedback in seconds
 INTERVAL_TIME = 1.0 ## time to show blank screen between learning trials in seconds
 FIXATION_TIME = np.random.uniform(0.75,1.25) ## time to show fixation cross before each trial in seconds (randomized between 0.75 and 1.25 second)  
 BLOCK_BREAK_TIME = 90.0 ## time to show break screen between learning blocks in seconds 
-
+FEEDBACK_TIME = 1.5 # Time to re-present the encoding screen after all 3 practice in seconds
 ###### Stimulus Parameters ######
 ALIEN_SIZE = 100 ## size of the alien images in pixels
 MASK_THRESHOLD = 180 
@@ -129,46 +129,17 @@ COLOR_RECONSTRUCTION = True ## set to True if color reconstruction task is inclu
 
 # ============ Define Key functions ===========
 
-### record function
-def record_response(
-    data,
-    trial_no,
-    block,
-    trial_start_time,
-    correct_response,
-    stimuli,
-    response,
-    rt,
-    trial_end_time,
-    initial_hue = None,
-    ring_rotation = None,
-    initial_residence = None,
-):
-    trial_data = {
-        "participant_id": exp_info["participant_id"],
-        "group": exp_info["group"],
-        "condition": exp_info["condition"],
-        "session": exp_info["session"],
-        "trial_no": trial_no,
-        "block": block,
-        "trial_start_time": trial_start_time,
-        "correct_response": correct_response,
-        "stimuli": stimuli,
-        "response": response,
-        "rt": rt,
-        "initial_hue": initial_hue,
-        "ring_rotation": ring_rotation,
-        "initial_residence":initial_residence,
-        "trial_end_time": trial_end_time
-    }
+def saveData(names, values, data):
+    data.update((zip(names, values)))
+    return data
 
-    data.append(trial_data)
 
 ### Learning trial function. This function will control the flow of each learning trial (and practice learning trials), including the encoding phase, the practice phase, and the inter-trial interval. It will also handle the presentation of stimuli and the collection of responses during the practice phase. The parameters defined above will be used to control the timing and structure of the learning trials.
 #def learning_trial(alien_image, alien_name, alien_planet, practice=False):
     ## 1. Fixation Cross
 
-def display_fixation_cross(stage, duration):
+def display_fixation_cross():
+    duration = np.random.uniform(0.75,1.25)
     fixation = win.TextStim(
         win = win,
         text = "+",
@@ -177,11 +148,13 @@ def display_fixation_cross(stage, duration):
         height = 50
     )
     fixation_N_Frames = time_to_frame(duration) ## show fixation cross for a random duration between 0.75 and 1.25 seconds that are converted to the number of frames for timing accuracy.
+    fix_start = now_time()
     for fixation_Frame in (fixation_N_Frames):
         fixation.draw()
         win.flip()
-    stage += 1
-    return stage 
+    fix_end = now_time()
+    fix_duration = duration
+    return fix_start, fix_end, fix_duration 
 
 def alien_fill_image(alien_image, alien_pos=(0,0)):
     fill_stim = visual.ImageStim(
@@ -265,16 +238,18 @@ def encoding_screen_draw(alien_image, alien_color, alien_pos, alien_fake_name, a
     update_residence_bar(residence_circle_stim, residence_angle)
     residence_bar_stim.draw()
 
-def encoding_screen_present(stage, alien_image, alien_color, alien_pos, alien_fake_name, alien_planet, duration, residence_ring_pos,residence_angle): 
+def encoding_screen_present(alien_image, alien_color, alien_pos, alien_fake_name, alien_planet, duration, residence_ring_pos,residence_angle): 
     nFrames = time_to_frame(duration)
+    encoding_start = now_time()
     for frame in range(nFrames):
         encoding_screen_draw(alien_image, alien_color, alien_pos, alien_fake_name, alien_planet, residence_ring_pos ,residence_angle)
         win.flip()
-
-    stage+=1
-    return stage
+    encoding_end = now_time()
+    encoding_duration = encoding_end - encoding_start
+   
+    return encoding_start, encoding_end, encoding_duration
     
-def blank_screen_present(stage,duration):
+def blank_screen_present(duration):
     emptyText = visual.TextStim(
         win = win,
         text = "")
@@ -282,8 +257,7 @@ def blank_screen_present(stage,duration):
     for frame in range(nFrames):
         emptyText.draw()
         win.flip()
-    stage += 1
-    return stage
+    
 
 def test_labels():
     labels_pos = calculate_pos()
@@ -314,7 +288,7 @@ def detect_label_selection(mouse, labels_stim):
         click_label = True
     return click_label, selected_label
 
-def planet_test_screen():
+def planet_test_screen(practiceNo, practice = False):
     test_alien = alien_outline_image(alien, TEST_ALIEN_POS)
     test_alien.draw()
     test_alien_name = visual.TextStim(
@@ -351,11 +325,12 @@ def planet_test_screen():
                 selected_planet = selected_label.text
                 rt = rt_clock.getTime()
                 trial_end_time = now_time()
-                record_response(data, trial_no, block, trial_start_time, planet, alien, selected_planet,rt, trial_end_time)
-                break
-    if practice:
-        practice_no = +1
-        return practice_no
+                if practice:
+                    saveData(['practiceNo','practice_planet_start_time','practice_planet_alien', 'practice_planet_correct', 'practice_planet_selected', 'practice_planet_rt', 'practice_end_time'],[practiceNo,trial_start_time, alien, planet, selected_planet,rt, trial_end_time], trial_data)
+                else:
+                    saveData(['test_planet_start_time', 'test_planet_alien', 'test_planet_correct', 'test_planet_selected', 'test_planet_rt', 'test_end_time'], [trial_start_time, alien, planet, selected_planet,rt, trial_end_time], trial_data)
+
+            break
     
 def create_color_ring(
     win,
@@ -416,7 +391,7 @@ def draw_color_ring(ring_sectors):
     for sector in ring_sectors:
         sector.draw()
 
-def color_test_screen():
+def color_test_screen(practiceNo = None, practice = False):
     fill_stim = alien_fill_image(alien, TEST_ALIEN_POS)
     outline_stim = alien_outline_image(alien, TEST_ALIEN_POS)
     test_alien_name = visual.TextStim(
@@ -553,11 +528,13 @@ def color_test_screen():
     selected_hue = current_hue_idx
     rt = rt_clock.getTime()
     trial_end_time = now_time()
-    record_response(data, trial_no, block, trial_start_time, color, alien, selected_hue, rt, trial_end_time, initial_hue, ring_rotation)
     if practice:
-        practice_no += 1
+        saveData(['practice_color_No', 'practice_color_start_time', 'practice_color_alien', 'practice_color_correct', 'practice_color_selected', 'practice_color_rt', 'practice_color_end_time', 'practice_color_ring_initial_hue','practice_color_ring_rotation'], [practiceNo, trial_start_time, alien, color, selected_hue, rt, trial_end_time, initial_hue, ring_rotation], trial_data)
+    else:
+        saveData(['test_color_start_time','test_color_alien', 'test_color_correct', 'test_color_selected', 'test_color_rt', 'test_color_end_time', 'test_color_ring_initial_hue','test_color_ring_rotation'], [trial_start_time, alien, color, selected_hue, rt, trial_end_time, initial_hue, ring_rotation], trial_data)
+   
 
-def residence_test_screen():
+def residence_test_screen(practiceNo = None, practice = False):
     outline_stim = alien_outline_image(alien, TEST_ALIEN_POS)
     test_alien_name = visual.TextStim(
         text = alien_name,
@@ -657,15 +634,75 @@ def residence_test_screen():
     selected_residence = current_angle
     rt = rt_clock.getTime()
     trial_end_time = now_time()
-    record_response(data, trial_no, block, trial_start_time, residence_angle, alien, selected_residence, rt, trial_end_time, initial_residence = initial_bar_angle)
     if practice:
-        practice_no += 1
-        
-def practice_flow(data, trial_no, block, alien, alien_name, color, planet, residence, interval):
-    practice_no = 0
-    for i in range(len(practice_order)):
-        practice_order[]
+        saveData(['practice_residence_no', 'practice_residence_start_time', 'practice_residence_alien', 'practice_residence_correct', 'practice_residence_selected', 'practice_residence_rt', 'practice_residence_end_time', 'practice_residence_ring_initial_angle'],[practiceNo, trial_start_time, alien, residence, selected_residence, rt, trial_end_time, initial_bar_angle], trial_data)
+    else:
+        saveData(['test_residence_start_time', 'test_residence_alien', 'test_residence_correct', 'test_residence_selected', 'test_residence_rt', 'test_residence_end_time', 'test_residence_ring_initial_angle'][trial_start_time, alien, residence, selected_residence, rt, trial_end_time, initial_bar_angle], trial_data)
     
+def generatePracticeOrder(planet, color, residence):
+    list_1 = [planet, color, residence]
+    random.shuffle(list_1)
+    practice_set_1 = []
+    practice_set_1.append(list_1)
+    list_2 = [list_1[1], list_1[2],list_1[0]]
+    practice_set_1.append(list_2)
+    list_3 = [list_1[2], list_1[0], list_1[1]]
+    practice_set_1.append(list_3)
+    random.shuffle(practice_set_1)
+    practice_set_2 = []
+    for i in range(3):
+        old_list = practice_set_1[i]
+        new_list = [old_list[0], old_list[2], old_list[1]]
+        practice_set_2.append(new_list)
+    return practice_set_1, practice_set_2
+    
+
+        
+def practice_flow(practiceOrder):
+    practice_start = now_time()
+    for i in range(len(practiceOrder)):
+        practiceNo = i + 1
+        practiceOrder[i](practiceNo, True)
+    practice_end = now_time()
+    practice_duration = practice_end - practice_start
+    return practice_start, practice_end, practice_duration
+
+def learning_trial(data, trial_no, block, alien, alien_name, color, planet, residence, practiceOrder):
+    trial_data = {
+    "participant_id": exp_info["participant_id"],
+    "group": exp_info["group"],
+    "condition": exp_info["condition"],
+    "session": exp_info["session"],
+    "trial_no": trial_no,
+    "block": block,
+    }
+    learning_trial_start = now_time()
+    fix_start, fix_end, fix_duration = display_fixation_cross()
+    encoding_start, encoding_end, encoding_duration = encoding_screen_present(alien, color, ALIEN_POS, alien_name, planet, ENCODING_TIME, ALIEN_POS, residence)
+    saveData(['trial_no', 'block','learning_trial_start','fix_start','fix_end','fix_duration', 'encoding_start', 'encoding_end', 'encoding_duration'], [trial_no, block,learning_trial_start,fix_start, fix_end, fix_duration, encoding_start, encoding_end, encoding_duration], trial_data)
+    blank_screen_present(BLANK_TIME)
+    mouse = event.Mouse(win=win)
+    practice_start, practice_end, practice_duration = practice_flow(practiceOrder)
+    blank_screen_present(BLANK_TIME)
+    feedback_start, feedback_end, feedback_duration = encoding_screen_present(alien, color, ALIEN_POS, alien_name, planet, FEEDBACK_TIME, ALIEN_POS, residence)
+    trial_end_time = now_time()
+    saveData(['practice_start', 'practice_end', 'practice_duration', 'feedback_start', 'feedback_end', 'feedback_duration','trial_end_time'], [practice_start, practice_end, practice_duration, feedback_start, feedback_end, feedback_duration, trial_end_time], trial_data)
+    data.append(trial_data)
+
+def study_block(data, block, practice_order, no_trials):
+    for i in range(no_trials):
+        trial_no = i+1
+        learning_trial(data, block, )
+
+def generateStudySequence():
+
+
+
+def generateStudyMaterials():
+    
+    
+
+
 
     
 
