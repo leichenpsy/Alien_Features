@@ -314,7 +314,7 @@ def detect_label_selection(mouse, labels_stim):
         click_label = True
     return click_label, selected_label
 
-def planet_test_screen(practice,alien, planet, alien_name, mouse):
+def planet_test_screen():
     test_alien = alien_outline_image(alien, TEST_ALIEN_POS)
     test_alien.draw()
     test_alien_name = visual.TextStim(
@@ -416,7 +416,7 @@ def draw_color_ring(ring_sectors):
     for sector in ring_sectors:
         sector.draw()
 
-def color_test_screen(practice, alien, color, alien_name, mouse):
+def color_test_screen():
     fill_stim = alien_fill_image(alien, TEST_ALIEN_POS)
     outline_stim = alien_outline_image(alien, TEST_ALIEN_POS)
     test_alien_name = visual.TextStim(
@@ -557,7 +557,7 @@ def color_test_screen(practice, alien, color, alien_name, mouse):
     if practice:
         practice_no += 1
 
-def residence_test_screen(practice, alien, residence_angle, alien_name, mouse):
+def residence_test_screen():
     outline_stim = alien_outline_image(alien, TEST_ALIEN_POS)
     test_alien_name = visual.TextStim(
         text = alien_name,
@@ -661,8 +661,10 @@ def residence_test_screen(practice, alien, residence_angle, alien_name, mouse):
     if practice:
         practice_no += 1
         
-def practice_flow(data, trial_no, block, alien, color, planet, residence, practice_order):
+def practice_flow(data, trial_no, block, alien, alien_name, color, planet, residence, interval):
     practice_no = 0
+    for i in range(len(practice_order)):
+        practice_order[]
     
 
     
