@@ -8,8 +8,10 @@ import pandas as pd
 import numpy as np
 import random
 import math
+import csv
 from PIL import Image
 from datetime import datetime
+from collections import defaultdict
 
 
 # ============ Define parameters ===========
@@ -1596,30 +1598,100 @@ def add_group_values(grouped_dict, new_key, values):
     return result
 
 
-
-def assign_planets_and_group_by_planet(pairing_result, planets, seed=None):
+def regroup_by_key(input_dict, key="planet"):
     """
-    Assign planet labels to each small dictionary, then regroup by planet.
+    Reorganize a dictionary from being grouped by original keys
+    to being grouped by planet.
 
     Parameters
     ----------
-    pairing_result : dict
-        Dictionary with 4 keys, e.g. "A", "B", "C", "D".
-        Each key maps to a list of 8 dictionaries.
-
+    input_dict : dict
         Example:
-            {
-                "A": [{...}, {...}, ..., {...}],
-                "B": [{...}, {...}, ..., {...}],
-                "C": [{...}, {...}, ..., {...}],
-                "D": [{...}, {...}, ..., {...}],
-            }
+
+        {
+            "A": [
+                {"group": "A", "value": 1, "planet": "Mars"},
+                {"group": "A", "value": 2, "planet": "Venus"},
+            ],
+            "B": [
+                {"group": "B", "value": 3, "planet": "Mars"},
+                {"group": "B", "value": 4, "planet": "Jupiter"},
+            ],
+        }
+
+    planet_key : str
+        The key inside each small dictionary that stores the planet name.
+
+    Returns
+    -------
+    dict
+        Example:
+
+        {
+            "Mars": [
+                {"group": "A", "value": 1, "planet": "Mars"},
+                {"group": "B", "value": 3, "planet": "Mars"},
+            ],
+            "Venus": [
+                {"group": "A", "value": 2, "planet": "Venus"},
+            ],
+            "Jupiter": [
+                {"group": "B", "value": 4, "planet": "Jupiter"},
+            ],
+        }
+    """
+
+    regrouped = defaultdict(list)
+
+    for group_records in input_dict.values():
+        for record in group_records:
+            planet = record[key]
+            regrouped[planet].append(record)
+
+    return dict(regrouped)
+
+
+def pair_by_preassigned_planets(
+    dict1,
+    dict2,
+    planets,
+    field_names=None,
+    seed=None,
+):
+    """
+    Pair two 4x8 dictionaries using preassigned planets.
+
+    Method
+    ------
+    1. For each group/list in dict1 and dict2:
+       randomly assign planets so each planet appears exactly twice.
+
+    2. Pair dict1 and dict2 items only when they have the same planet.
+
+    3. Use a Latin-square rotation so that each dict1 group pairs with
+       exactly 2 items from each dict2 group.
+
+    Parameters
+    ----------
+    dict1 : dict
+        Dictionary with 4 keys. Each key maps to 8 items.
+
+    dict2 : dict
+        Dictionary with 4 keys. Each key maps to 8 items.
 
     planets : list
-        A list of 4 planet labels/items.
+        List of 4 planet values.
 
-        Example:
-            ["Mercury", "Venus", "Mars", "Jupiter"]
+    field_names : list of str, optional
+        Names for the output fields, excluding "planet".
+
+        Default:
+            [
+                "dict1_group",
+                "dict1_item",
+                "dict2_group",
+                "dict2_item",
+            ]
 
     seed : int, optional
         Random seed.
@@ -1627,59 +1699,185 @@ def assign_planets_and_group_by_planet(pairing_result, planets, seed=None):
     Returns
     -------
     dict
-        Dictionary grouped by planet.
-
-        Example:
-            {
-                "Mercury": [{..., "planet": "Mercury"}, ...],
-                "Venus": [{..., "planet": "Venus"}, ...],
-                "Mars": [{..., "planet": "Mars"}, ...],
-                "Jupiter": [{..., "planet": "Jupiter"}, ...],
-            }
-
-    Notes
-    -----
-    For each original group, e.g. pairing_result["A"]:
-    - there are 8 dictionaries;
-    - each planet is assigned exactly twice;
-    - assignment is randomized;
-    - each small dictionary gets a new key: "planet".
+        Final result grouped by planet.
     """
 
-    rng = random.Random(seed)
+    if field_names is None:
+        field_names = [
+            "dict1_group",
+            "dict1_item",
+            "dict2_group",
+            "dict2_item",
+        ]
+
+    if len(field_names) != 4:
+        raise ValueError("field_names must contain exactly 4 strings.")
+
+    if "planet" in field_names:
+        raise ValueError('"planet" is added automatically; do not include it in field_names.')
+
+    if len(dict1) != 4:
+        raise ValueError("dict1 must contain exactly 4 keys.")
+
+    if len(dict2) != 4:
+        raise ValueError("dict2 must contain exactly 4 keys.")
 
     if len(planets) != 4:
         raise ValueError("planets must contain exactly 4 items.")
 
-    if len(pairing_result) != 4:
-        raise ValueError("pairing_result must contain exactly 4 keys.")
+    for k, v in dict1.items():
+        if len(v) != 8:
+            raise ValueError(f"dict1[{k!r}] must contain exactly 8 items.")
 
+    for k, v in dict2.items():
+        if len(v) != 8:
+            raise ValueError(f"dict2[{k!r}] must contain exactly 8 items.")
+
+    rng = random.Random(seed)
+
+    f_d1_group, f_d1_item, f_d2_group, f_d2_item = field_names
+
+    dict1_keys = list(dict1.keys())
+    dict2_keys = list(dict2.keys())
+
+    # Randomize group order for Latin-square mapping
+    rng.shuffle(dict1_keys)
+    rng.shuffle(dict2_keys)
+
+    # --------------------------------------------------
+    # Helper: assign planets to items in each group
+    # --------------------------------------------------
+    def assign_planets_to_dict(input_dict):
+        assigned = {}
+
+        for group_key, items in input_dict.items():
+            shuffled_items = list(items)
+            rng.shuffle(shuffled_items)
+
+            planet_pool = []
+            for planet in planets:
+                planet_pool.extend([planet, planet])
+
+            rng.shuffle(planet_pool)
+
+            assigned[group_key] = {planet: [] for planet in planets}
+
+            for item, planet in zip(shuffled_items, planet_pool):
+                assigned[group_key][planet].append(item)
+
+        return assigned
+
+    assigned1 = assign_planets_to_dict(dict1)
+    assigned2 = assign_planets_to_dict(dict2)
+
+    # --------------------------------------------------
+    # Pair using Latin-square rotation
+    # --------------------------------------------------
     grouped_by_planet = {planet: [] for planet in planets}
 
-    for original_group_key, item_list in pairing_result.items():
+    for p_idx, planet in enumerate(planets):
+        for i, d1_key in enumerate(dict1_keys):
+            d2_key = dict2_keys[(i + p_idx) % 4]
 
-        if len(item_list) != 8:
-            raise ValueError(
-                f"pairing_result[{original_group_key!r}] must contain exactly 8 dictionaries."
-            )
+            d1_items = assigned1[d1_key][planet]
+            d2_items = assigned2[d2_key][planet]
 
-        # Create planet assignment:
-        # each planet appears exactly twice for this group.
-        planet_assignments = []
+            rng.shuffle(d1_items)
+            rng.shuffle(d2_items)
 
-        for planet in planets:
-            planet_assignments.extend([planet, planet])
+            for item1, item2 in zip(d1_items, d2_items):
+                grouped_by_planet[planet].append({
+                    f_d1_group: d1_key,
+                    f_d1_item: item1,
+                    f_d2_group: d2_key,
+                    f_d2_item: item2,
+                    "planet": planet,
+                })
 
-        rng.shuffle(planet_assignments)
-
-        # Assign planets to dictionaries
-        for item_dict, planet in zip(item_list, planet_assignments):
-            new_item_dict = item_dict.copy()
-            new_item_dict["planet"] = planet
-
-            grouped_by_planet[planet].append(new_item_dict)
+    # Shuffle rows within each planet group
+    for planet in planets:
+        rng.shuffle(grouped_by_planet[planet])
 
     return grouped_by_planet
+
+def add_name(dic, male_name_list, female_name_list):
+    random.shuffle(male_name_list)
+    random.shuffle(female_name_list)
+    male_idx = 0
+    female_idx = 0
+    for value in dic.values():
+        random.shuffle(value)
+        for i in range(len(value)):
+            if i % 2 == 0:
+                value[i]['name'] = female_name_list[female_idx]
+                female_idx += 1
+            elif i % 2 == 1:
+                value[i]['name'] = male_name_list[male_idx]
+                male_idx += 1
+    return dic
+
+def add_others(dic, new_dic):
+    for value in dic.values():
+        for i in range(len(value)):
+            value[i].update(new_dic)
+    return dic
+
+def create_stimuli_csv(data, file_name):
+    """
+    Save a dictionary of lists of dictionaries to a CSV file.
+
+    Parameters
+    ----------
+    data : dict
+        A dictionary where each value is a list of small dictionaries.
+
+        Example:
+
+        {
+            "Mars": [
+                {"name": "A1", "degree": 1, "planet": "Mars"},
+                {"name": "B1", "degree": 2, "planet": "Mars"},
+            ],
+            "Venus": [
+                {"name": "A2", "degree": 3, "planet": "Venus"},
+                {"name": "B2", "degree": 4, "planet": "Venus"},
+            ],
+        }
+
+    file_name : str
+        Name of the CSV file to save.
+
+        Example:
+            "output.csv"
+
+    Returns
+    -------
+    None
+    """
+
+    # Flatten all small dictionaries into one list
+    rows = []
+    save_file_name = 'stimuli_participant_' + file_name
+    for group_list in data.values():
+        rows.extend(group_list)
+
+    # If there are no rows, create an empty file and return
+    if not rows:
+        with open(save_file_name, "w", newline="", encoding="utf-8") as f:
+            pass
+        return
+
+    # Use the keys of the first small dictionary as CSV headers
+    headers = list(rows[0].keys())
+
+    with open(save_file_name, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=headers)
+
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+
 # ============ Main Script ===========
 
 exp_info = {
@@ -1749,11 +1947,14 @@ if exp_info['condition'] == 'C':
 elif exp_info['condition'] == 'R':
     paired_stimuli = pair_two_dicts(residence_samples, color_samples, field_names= ['residence_group', 'residence_degree', 'color_group', 'color_degree'])
 if exp_info['condition'] == 'C' or exp_info['condition'] == 'R':
-    color_residence_planet = add_group_values(paired_stimuli, 'planet', ALIEN_PLANETS)
+    add_planet = add_group_values(paired_stimuli, 'planet', ALIEN_PLANETS)
+    color_residence_planet = regroup_by_key(add_planet, 'planet')
 else:
-    paired_stimuli = pair_two_dicts(color_samples, residence_samples, field_names=['color_group', 'color_degree', 'residence_group', 'residence_degree'])
-    color_residence_planet = assign_planets_and_group_by_planet(paired_stimuli, ALIEN_PLANETS)
-                              
+    color_residence_planet = pair_by_preassigned_planets(color_samples, residence_samples, ALIEN_PLANETS, field_names=['color_group', 'color_degree', 'residence_group', 'residence_degree'])
+
+name_added = add_name(color_residence_planet, ALIEN_M_NAMES, ALIEN_F_NAMES)
+full_stimuli = add_others(name_added,exp_info)
+create_stimuli_csv(full_stimuli, exp_info["participant_id"])                            
 
 ### Instructions
 instructions_text = visual.TextStim(
