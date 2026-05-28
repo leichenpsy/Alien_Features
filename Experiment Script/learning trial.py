@@ -103,8 +103,8 @@ RESIDENCE_BAR_COLOR = 'black'
 
 ###### MODE PARAMETERS ######
 MODES = ['debug','demo','experiment']
-EXPERIMENT_GROUPS = ['1','2'] ## set the group assignemnt for the experiment. '1' for immediate test group, '2' for 1-day-delay test group. 
-
+GROUPS = ['1','2'] ## set the group assignemnt for the experiment. '1' for immediate test group, '2' for 1-day-delay test group. 
+CONDITIONS = ['C', 'R', 'N'] # C: group by color R: group by residence cluster N: no rule
 
 ###### Structure Parameters ######
 
@@ -705,287 +705,77 @@ def generateColors():
 def generateStudyMaterials():
     
     
-def sample_points_around_center(
-    m,
-    n,
-    k,
-    kappa=15,
-    max_offset=35,
-    jitter_range=3,
-    mean_tolerance=1.5,
-    min_per_side=None,
-    avoid_exact_symmetry=True,
-    max_attempts=50000,
-    seed=None
+def generate_until_valid(
+    set_labels,
+    base_means_deg,
+    n=8,
+    kappa=80.0,
+    side_offset_deg=10.0,
+    mean_jitter_deg=2,
+    unit=0.1,
+    min_within_pairwise_dist_deg=4,
+    max_within_span_deg=70.0,
+    min_between_set_dist_deg=30.0,
+    min_center_dist_deg=60.0,
+    max_attempts=100000,
+    rng=None,
+    verbose=False,
+    avoid_within_set_symmetry=True,
+    symmetry_pair_tolerance_deg=1.0
 ):
     """
-    Generate n integer hue samples around mean center m.
+    Generate samples repeatedly until all requirements are met.
 
-    Requirements:
-        - Center is jittered by random integer in [-jitter_range, +jitter_range].
-        - Samples are drawn from a von Mises distribution around the jittered center.
-        - Final hues are rounded to nearest integer.
-        - Each sampled hue is distinct.
-        - Pairwise circular distance is at least k degrees.
-        - Circular mean is close to the jittered center.
-        - Exact symmetry is avoided.
+    Internally, this uses metadata such as jittered centers for validation.
+    Publicly, it returns only a simple dictionary:
 
-    Parameters
-    ----------
-    m : int or float
-        Intended category center in degrees, e.g., 0, 90, 180, 270.
-
-    n : int
-        Number of samples to generate.
-
-    k : int or float
-        Minimum pairwise distance between samples, in degrees.
-
-    kappa : float
-        Concentration of von Mises distribution.
-        Larger values produce tighter samples around the center.
-
-    max_offset : int or float
-        Maximum allowed absolute angular offset from the jittered center.
-
-    jitter_range : int
-        Integer jitter range. If 3, center jitter is sampled from [-3, 3].
-
-    mean_tolerance : float
-        Maximum allowed circular-mean error from the jittered center.
-
-    min_per_side : int or None
-        Minimum number of samples required on each side of the center.
-        If None, uses floor(n / 3), which allows mildly asymmetric samples.
-
-    avoid_exact_symmetry : bool
-        If True, reject samples with too many mirror-paired offsets.
-
-    max_attempts : int
-        Number of rejection-sampling attempts.
-
-    seed : int or None
-        Random seed.
+    {
+        label_1: [points...],
+        label_2: [points...],
+        ...
+    }
 
     Returns
     -------
     dict
-        Contains jittered center, offsets, hues, mean hue, and diagnostics.
+        Simple sample dictionary with labels as keys and point lists as values.
     """
-
-    rng = np.random.default_rng(seed)
-
-    if min_per_side is None:
-        min_per_side = max(1, n // 3)
+    if rng is None:
+        rng = np.random.default_rng()
 
     for attempt in range(1, max_attempts + 1):
-
-        # Integer center jitter, e.g. -3, -2, ..., 2, 3
-        center_jitter = rng.integers(
-            -jitter_range,
-            jitter_range + 1
+        internal_sample = generate_circle_point_sets_internal(
+            set_labels=set_labels,
+            base_means_deg=base_means_deg,
+            n=n,
+            kappa=kappa,
+            side_offset_deg=side_offset_deg,
+            mean_jitter_deg=mean_jitter_deg,
+            unit=unit,
+            rng=rng,
+            min_within_pairwise_dist_deg=min_within_pairwise_dist_deg,
         )
 
-        target_center = int(round(m + center_jitter)) % 360
-
-        offsets = []
-        points = []
-
-        inner_attempts = 0
-        max_inner_attempts = 10000
-
-        while len(points) < n and inner_attempts < max_inner_attempts:
-            inner_attempts += 1
-
-            # Draw angular offset from von Mises centered at 0.
-            sample_rad = rng.vonmises(mu=0, kappa=kappa)
-            offset = int(round(np.rad2deg(sample_rad)))
-
-            # Convert to signed offset in [-180, 180)
-            offset = int(circular_signed_diff_deg(offset, 0))
-
-            if offset == 0:
-                continue
-
-            if abs(offset) > max_offset:
-                continue
-
-            candidate_point = int(round(target_center + offset)) % 360
-
-            # Distinct hue requirement.
-            if candidate_point in points:
-                continue
-
-            # Minimum pairwise distance requirement.
-            too_close = False
-            for old_point in points:
-                if circular_abs_diff_deg(candidate_point, old_point) < k:
-                    too_close = True
-                    break
-
-            if too_close:
-                continue
-
-            points.append(candidate_point)
-            offsets.append(offset)
-
-        if len(points) < n:
-            continue
-
-        mean_point = circular_mean_deg(points)
-        mean_error = circular_abs_diff_deg(mean_point, target_center)
-
-        if mean_error > mean_tolerance:
-            continue
-
-        n_negative = sum(o < 0 for o in offsets)
-        n_positive = sum(o > 0 for o in offsets)
-
-        # Ensure the sample set is not all on one side.
-        if n_negative < min_per_side or n_positive < min_per_side:
-            continue
-
-        if avoid_exact_symmetry and has_exact_symmetry(offsets):
-            continue
-
-        return {
-            "base_center": m,
-            "center_jitter": int(center_jitter),
-            "target_center": int(target_center),
-            "points": sorted([int(h) for h in hues]),
-            "offsets": sorted([int(o) for o in offsets]),
-            "mean_point": round(float(mean_hue), 3),
-            "mean_error": round(float(mean_error), 3),
-            "min_pairwise_distance": round(float(min_pairwise_distance_deg(hues)), 3),
-            "n_negative": int(n_negative),
-            "n_positive": int(n_positive),
-            "attempts": attempt
-        }
-
-    raise RuntimeError(
-        "Could not generate valid hue samples. "
-        "Try increasing max_attempts, increasing mean_tolerance, "
-        "reducing k, reducing kappa, or increasing max_offset."
-    )
-
-def generate_four_point_sets(
-    n,
-    k,
-    centers=None,
-    labels=None,
-    kappa=15,
-    max_offset=35,
-    jitter_range=3,
-    mean_tolerance=1.5,
-    within_k=None,
-    between_k=10,
-    boundary_margin=5,
-    max_outer_attempts=2000,
-    seed=None
-):
-    """
-    Generate four hue sample sets around 0, 90, 180, and 270 degrees.
-
-    Each set:
-        - has n integer hue samples
-        - is sampled from a von Mises distribution
-        - has jittered center in [-3, 3] by default
-        - avoids exact symmetry
-        - has pairwise distances at least k degrees
-
-    Then the four sets are checked for clear category boundaries.
-
-    Parameters
-    ----------
-    n : int
-        Number of samples per color category.
-
-    k : int
-        Minimum within-set distance.
-
-    centers : list or None
-        Default: [0, 90, 180, 270]
-
-    labels : list or None
-        Default: ["red", "yellow", "green", "blue"]
-
-    within_k : int or None
-        Within-set spacing used in boundary check.
-        If None, uses k.
-
-    between_k : int
-        Minimum distance between samples from different sets.
-
-    boundary_margin : int
-        Minimum distance from any sample to its category boundary.
-
-    max_outer_attempts : int
-        Number of times to regenerate all four sets.
-
-    seed : int or None
-        Random seed.
-
-    Returns
-    -------
-    dict
-        Contains generated sample sets and boundary report.
-    """
-
-    if centers is None:
-        centers = [0, 90, 180, 270]
-
-    if labels is None:
-        labels = ["red", "yellow", "green", "blue"]
-
-    if len(centers) != 4 or len(labels) != 4:
-        raise ValueError("centers and labels must both have length 4.")
-
-    if within_k is None:
-        within_k = k
-
-    rng = np.random.default_rng(seed)
-
-    for outer_attempt in range(1, max_outer_attempts + 1):
-
-        sample_sets = {}
-
-        # Use independent seeds for each color set.
-        for label, center in zip(labels, centers):
-            color_seed = int(rng.integers(0, 2**32 - 1))
-
-            sample_sets[label] = sample_points_around_center(
-                m=center,
-                n=n,
-                k=k,
-                kappa=kappa,
-                max_offset=max_offset,
-                jitter_range=jitter_range,
-                mean_tolerance=mean_tolerance,
-                avoid_exact_symmetry=True,
-                seed=color_seed
-            )
-
-        boundary_report = check_four_set_boundaries(
-            sample_sets=sample_sets,
-            within_k=within_k,
-            between_k=between_k,
-            boundary_margin=boundary_margin
+        is_valid = check_circle_point_sets_internal(
+            internal_sample=internal_sample,
+            min_within_pairwise_dist_deg=min_within_pairwise_dist_deg,
+            max_within_span_deg=max_within_span_deg,
+            min_between_set_dist_deg=min_between_set_dist_deg,
+            min_center_dist_deg=min_center_dist_deg,
+            avoid_within_set_symmetry=avoid_within_set_symmetry,
+            symmetry_pair_tolerance_deg=symmetry_pair_tolerance_deg,
+            verbose=verbose,
         )
 
-        if boundary_report["passed"]:
-            return {
-                "sample_sets": sample_sets,
-                "boundary_report": boundary_report,
-                "outer_attempts": outer_attempt
-            }
+        if is_valid:
+            return simplify_sample(internal_sample)
 
     raise RuntimeError(
-        "Could not generate four valid color sets. "
-        "Try increasing max_outer_attempts, increasing mean_tolerance, "
-        "reducing k, reducing between_k, reducing boundary_margin, "
-        "reducing kappa, or increasing max_offset."
+        f"Could not generate a valid sample after {max_attempts} attempts. "
+        f"Try relaxing constraints, increasing kappa, or reducing n."
+        f"or lowering symmetry_pair_tolerance_deg."
     )
-    
+
 
 
 ########### Helper function #############
@@ -1158,7 +948,13 @@ def mouse_press_on_the_ring(mouse, mouse_on_ring, ring_center):
 
 ## This function precomputes the hue color, to allow for smooth updating of colors
 def create_hue_rgb_psy():
-    hue_rgb_psy = np.array([lch_to_psychopy_rgb(L_VALUE, C_VALUE, hh) for hh in range(360/COLOR_RING_UNIT)]),
+    n_units = int(round(360 / COLOR_RING_UNIT))
+
+    hue_rgb_psy = np.array([
+        lch_to_psychopy_rgb(L_VALUE, C_VALUE, i * COLOR_RING_UNIT)
+        for i in range(n_units)
+    ])
+
     return hue_rgb_psy
 
 ## This function coverts the time_duration to frames, to allowed for more accurate time control
@@ -1212,308 +1008,684 @@ def calculate_pos():
         pos.append((pos_x, pos_y))
     return pos
 
-def round_unique_hues(hues, min_sep=1):
+######### helper functions for generate sampled points
+
+def wrap_angle_deg(angle):
     """
-    Round hues to integer degrees and ensure they are unique.
+    Wrap angle to [0, 360).
     """
-    rounded = [int(round(h)) % 360 for h in hues]
+    return angle % 360.0
 
-    if len(set(rounded)) != len(rounded):
-        return None
 
-    # Check circular minimum separation
-    for i in range(len(rounded)):
-        for j in range(i + 1, len(rounded)):
-            d = abs(((rounded[i] - rounded[j] + 180) % 360) - 180)
-            if d < min_sep:
-                return None
-
-    return rounded
-
-def circular_mean_deg(angles):
+def angular_distance_deg(a, b):
     """
-    Circular mean of angles in degrees, returned in [0, 360).
+    Compute the smallest circular angular distance between two angles.
     """
-    angles = np.asarray(angles)
-    radians = np.deg2rad(angles)
-
-    mean_sin = np.mean(np.sin(radians))
-    mean_cos = np.mean(np.cos(radians))
-
-    return np.rad2deg(np.arctan2(mean_sin, mean_cos)) % 360
+    diff = abs(a - b) % 360.0
+    return min(diff, 360.0 - diff)
 
 
-def circular_signed_diff_deg(a, b):
+def quantize_angle(angle, unit=0.1, wrap=True):
     """
-    Signed circular difference a - b in degrees, returned in [-180, 180).
+    Quantize an angle or value to the nearest unit.
     """
-    return ((a - b + 180) % 360) - 180
+    value = round(angle / unit) * unit
+    value = round(value, 10)
 
+    if wrap:
+        value = wrap_angle_deg(value)
 
-def circular_abs_diff_deg(a, b):
+    return value
+
+def signed_angular_offset_deg(angle, center):
     """
-    Absolute circular distance between two angles in degrees.
+    Signed shortest angular offset from center to angle, in degrees.
+
+    Returns a value in [-180, 180).
+
+    Examples
+    --------
+    center = 90
+    angle = 82  -> -8
+    angle = 98  -> +8
     """
-    return abs(circular_signed_diff_deg(a, b))
+    return ((angle - center + 180.0) % 360.0) - 180.0
 
-
-def min_pairwise_distance_deg(hues):
-    """
-    Minimum circular distance among all pairs in one hue set.
-    """
-    hues = list(hues)
-
-    if len(hues) < 2:
-        return np.inf
-
-    min_dist = np.inf
-
-    for i in range(len(hues)):
-        for j in range(i + 1, len(hues)):
-            d = circular_abs_diff_deg(hues[i], hues[j])
-            min_dist = min(min_dist, d)
-
-    return min_dist
-
-
-def has_exact_symmetry(offsets):
-    """
-    Returns True if offsets contain exact mirror pairs around zero.
-
-    Example:
-        [-20, -10, 10, 20] -> True-ish symmetric
-    """
-    offsets = list(offsets)
-    offset_set = set(offsets)
-
-    mirror_count = 0
-
-    for o in offsets:
-        if o != 0 and -o in offset_set:
-            mirror_count += 1
-
-    # Each mirrored pair is counted twice.
-    mirror_pairs = mirror_count // 2
-
-    return mirror_pairs >= len(offsets) // 2
-
-def circular_midpoint_deg(a, b):
-    """
-    Circular midpoint from angle a to angle b along the shortest path.
-    """
-    diff = circular_signed_diff_deg(b, a)
-    return (a + diff / 2) % 360
-
-
-def angle_in_clockwise_arc(x, start, end):
-    """
-    Returns True if x lies on clockwise arc from start to end.
-    Angles are in degrees.
-    """
-    return ((x - start) % 360) <= ((end - start) % 360)
-
-
-def boundary_interval_for_center(center, left_neighbor, right_neighbor):
-    """
-    Compute the angular interval belonging to one category center.
-
-    The interval is bounded by:
-        midpoint(left_neighbor, center)
-        midpoint(center, right_neighbor)
-
-    Returns
-    -------
-    left_boundary, right_boundary
-    """
-    left_boundary = circular_midpoint_deg(left_neighbor, center)
-    right_boundary = circular_midpoint_deg(center, right_neighbor)
-
-    return left_boundary, right_boundary
-
-
-def check_four_set_boundaries(
-    sample_sets,
-    within_k,
-    between_k=10,
-    boundary_margin=5
+def check_within_set_mirror_symmetry(
+    internal_sample,
+    symmetry_pair_tolerance_deg=1.0,
+    verbose=False,
 ):
     """
-    Check boundary clarity for four hue sample sets.
+    Reject a set if a left point and a right point are approximately
+    mirror-symmetric around the jittered set center.
 
-    Expected input format
-    ---------------------
-    sample_sets should be a dict like:
+    Example rejected:
+        center = 90
+        left point = 82
+        right point = 98
 
-    {
-        "red": {
-            "target_center": 359,
-            "hues": [...]
-        },
-        "yellow": {
-            "target_center": 92,
-            "hues": [...]
-        },
-        "green": {
-            "target_center": 181,
-            "hues": [...]
-        },
-        "blue": {
-            "target_center": 268,
-            "hues": [...]
-        }
-    }
+        offsets are -8 and +8.
+        abs(offset_left + offset_right) = 0.
+    """
+    set_labels = internal_sample["set_labels"]
+    sets = internal_sample["sets"]
+    info = internal_sample["generated_info"]
 
-    Requirements checked
-    --------------------
-    1. Each set has within-set spacing >= within_k.
-    2. Any two hues from different sets are separated by >= between_k.
-    3. Each hue lies inside its category's boundary interval.
-    4. Each hue is at least boundary_margin degrees away from boundaries.
+    for label in set_labels:
+        center = info[label]["jittered_mean_deg"]
+
+        left_points = sets[label]["left_points"]
+        right_points = sets[label]["right_points"]
+
+        for lp in left_points:
+            left_offset = signed_angular_offset_deg(lp, center)
+
+            for rp in right_points:
+                right_offset = signed_angular_offset_deg(rp, center)
+
+                # Perfect mirror symmetry means:
+                # left_offset + right_offset == 0
+                symmetry_error = abs(left_offset + right_offset)
+
+                if symmetry_error <= symmetry_pair_tolerance_deg:
+                    if verbose:
+                        print(
+                            f"Failed within-set mirror symmetry for {label}: "
+                            f"center={center}, "
+                            f"left_point={lp}, right_point={rp}, "
+                            f"left_offset={left_offset:.2f}, "
+                            f"right_offset={right_offset:.2f}, "
+                            f"symmetry_error={symmetry_error:.2f}, "
+                            f"tolerance={symmetry_pair_tolerance_deg}"
+                        )
+                    return False
+
+    return True
+
+def sample_von_mises_deg(mean_deg, kappa, rng=None):
+    """
+    Sample one angle in degrees from a von Mises distribution.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+
+    mean_rad = np.deg2rad(mean_deg)
+    sample_rad = rng.vonmises(mean_rad, kappa)
+
+    return wrap_angle_deg(np.rad2deg(sample_rad))
+
+
+def circular_span_deg(points):
+    """
+    Compute the smallest circular arc span containing all points.
+    """
+    points = np.sort(np.asarray(points, dtype=float) % 360.0)
+
+    if len(points) <= 1:
+        return 0.0
+
+    gaps = np.diff(points)
+    wrap_gap = 360.0 - points[-1] + points[0]
+    gaps = np.append(gaps, wrap_gap)
+
+    largest_gap = np.max(gaps)
+
+    return 360.0 - largest_gap
+
+
+def sample_vonmises_with_min_spacing(
+    center_deg,
+    count,
+    kappa,
+    existing_points=None,
+    min_dist_deg=3.0,
+    unit=0.1,
+    rng=None,
+    max_tries=10000,
+):
+    """
+    Sample angles around a center using a von Mises distribution,
+    while enforcing minimum circular spacing from existing points.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+
+    if existing_points is None:
+        existing_points = []
+
+    accepted = []
+    center_rad = np.deg2rad(center_deg)
+
+    for _ in range(count):
+        found = False
+
+        for _try in range(max_tries):
+            angle_rad = rng.vonmises(center_rad, kappa)
+            angle_deg = quantize_angle(np.rad2deg(angle_rad), unit=unit)
+
+            all_previous = existing_points + accepted
+
+            if all(
+                angular_distance_deg(angle_deg, prev) >= min_dist_deg
+                for prev in all_previous
+            ):
+                accepted.append(angle_deg)
+                found = True
+                break
+
+        if not found:
+            raise RuntimeError(
+                f"Could not sample {count} points around {center_deg}° "
+                f"with min_dist_deg={min_dist_deg} and kappa={kappa}."
+            )
+
+    return accepted
+
+
+def generate_circle_point_sets_internal(
+    set_labels,
+    base_means_deg,
+    n,
+    kappa=80.0,
+    side_offset_deg=8.0,
+    mean_jitter_deg=3.0,
+    unit=0.1,
+    rng=None,
+    min_within_pairwise_dist_deg=3.0,
+):
+    """
+    Generate circular point sets with internal metadata.
+
+    This function is intended for internal validation only.
 
     Returns
     -------
     dict
-        Diagnostic report.
+        Internal sample containing:
+        - set labels
+        - all generated points
+        - left/right points
+        - jittered centers
+        - left/right centers
     """
+    if rng is None:
+        rng = np.random.default_rng()
 
-    names = list(sample_sets.keys())
+    base_means_deg = np.asarray(base_means_deg, dtype=float)
 
-    if len(names) != 4:
-        raise ValueError("sample_sets must contain exactly 4 sets.")
+    if len(base_means_deg) != len(set_labels):
+        raise ValueError("base_means_deg and set_labels must have the same length.")
 
-    centers = {
-        name: sample_sets[name]["target_center"]
-        for name in names
-    }
+    if n % 2 != 0:
+        raise ValueError("n must be even so that half the points are left and half are right.")
 
-    # Sort centers circularly by angle.
-    sorted_names = sorted(names, key=lambda name: centers[name])
+    generated_sets = {}
+    generated_info = {}
 
-    report = {
-        "passed": True,
-        "within_set": {},
-        "between_set": {},
-        "boundaries": {},
-        "violations": []
-    }
+    for label, base_mean in zip(set_labels, base_means_deg):
+        # Random jitter for this set center
+        mean_jitter = rng.uniform(-mean_jitter_deg, mean_jitter_deg)
+        mean_jitter = quantize_angle(mean_jitter, unit=unit, wrap=False)
 
-    # 1. Check within-set spacing.
-    for name in names:
-        hues = sample_sets[name]["hues"]
-        min_dist = min_pairwise_distance_deg(hues)
-
-        ok = min_dist >= within_k
-
-        report["within_set"][name] = {
-            "min_distance": round(float(min_dist), 3),
-            "required": within_k,
-            "passed": bool(ok)
-        }
-
-        if not ok:
-            report["passed"] = False
-            report["violations"].append(
-                f"{name}: within-set minimum distance {min_dist:.2f} < {within_k}"
-            )
-
-    # 2. Check between-set spacing.
-    for i in range(len(names)):
-        for j in range(i + 1, len(names)):
-            name_a = names[i]
-            name_b = names[j]
-
-            points_a = sample_sets[name_a]["points"]
-            points_b = sample_sets[name_b]["points"]
-
-            min_dist = np.inf
-
-            for ha in points_a:
-                for hb in points_b:
-                    d = circular_abs_diff_deg(ha, hb)
-                    min_dist = min(min_dist, d)
-
-            ok = min_dist >= between_k
-
-            pair_name = f"{name_a}-{name_b}"
-
-            report["between_set"][pair_name] = {
-                "min_distance": round(float(min_dist), 3),
-                "required": between_k,
-                "passed": bool(ok)
-            }
-
-            if not ok:
-                report["passed"] = False
-                report["violations"].append(
-                    f"{pair_name}: between-set minimum distance {min_dist:.2f} < {between_k}"
-                )
-
-    # 3. Check category boundary intervals.
-    for idx, name in enumerate(sorted_names):
-        center = centers[name]
-
-        left_name = sorted_names[(idx - 1) % 4]
-        right_name = sorted_names[(idx + 1) % 4]
-
-        left_center = centers[left_name]
-        right_center = centers[right_name]
-
-        left_boundary, right_boundary = boundary_interval_for_center(
-            center=center,
-            left_neighbor=left_center,
-            right_neighbor=right_center
+        # Jittered center mean
+        jittered_mean = quantize_angle(
+            base_mean + mean_jitter,
+            unit=unit,
+            wrap=True,
         )
 
-        points = sample_sets[name]["points"]
+        # Left and right centers
+        left_center = quantize_angle(
+            jittered_mean - side_offset_deg,
+            unit=unit,
+            wrap=True,
+        )
 
-        point_reports = []
+        right_center = quantize_angle(
+            jittered_mean + side_offset_deg,
+            unit=unit,
+            wrap=True,
+        )
 
-        for p in points:
-            inside = angle_in_clockwise_arc(
-                p,
-                left_boundary,
-                right_boundary
-            )
+        left_points = sample_vonmises_with_min_spacing(
+            center_deg=left_center,
+            count=n // 2,
+            kappa=kappa,
+            existing_points=[],
+            min_dist_deg=min_within_pairwise_dist_deg,
+            unit=unit,
+            rng=rng,
+            max_tries=10000,
+        )
 
-            dist_to_left = circular_abs_diff_deg(h, left_boundary)
-            dist_to_right = circular_abs_diff_deg(h, right_boundary)
-            min_boundary_dist = min(dist_to_left, dist_to_right)
+        right_points = sample_vonmises_with_min_spacing(
+            center_deg=right_center,
+            count=n - n // 2,
+            kappa=kappa,
+            existing_points=left_points,
+            min_dist_deg=min_within_pairwise_dist_deg,
+            unit=unit,
+            rng=rng,
+            max_tries=10000,
+        )
 
-            margin_ok = min_boundary_dist >= boundary_margin
+        points = left_points + right_points
 
-            point_ok = inside and margin_ok
-
-            point_reports.append({
-                "point": int(p),
-                "inside": bool(inside),
-                "min_boundary_distance": round(float(min_boundary_dist), 3),
-                "passed": bool(point_ok)
-            })
-
-            if not point_ok:
-                report["passed"] = False
-                report["violations"].append(
-                    f"{name}: hue {h} failed boundary check. "
-                    f"inside={inside}, margin={min_boundary_dist:.2f}"
-                )
-
-        report["boundaries"][name] = {
-            "center": int(center),
-            "left_neighbor": left_name,
-            "right_neighbor": right_name,
-            "left_boundary": round(float(left_boundary), 3),
-            "right_boundary": round(float(right_boundary), 3),
-            "boundary_margin": boundary_margin,
-            "points": point_reports
+        generated_sets[label] = {
+            "all_points": points,
+            "left_points": left_points,
+            "right_points": right_points,
         }
 
-    return report
+        generated_info[label] = {
+            "base_mean_deg": float(base_mean),
+            "mean_jitter_deg": mean_jitter,
+            "jittered_mean_deg": jittered_mean,
+            "left_center_deg": left_center,
+            "right_center_deg": right_center,
+        }
+
+    internal_sample = {
+        "set_labels": list(set_labels),
+        "sets": generated_sets,
+        "generated_info": generated_info,
+        "parameters": {
+            "base_means_deg": base_means_deg.tolist(),
+            "n_per_set": n,
+            "kappa": kappa,
+            "side_offset_deg": side_offset_deg,
+            "mean_jitter_deg": mean_jitter_deg,
+            "unit": unit,
+            "min_within_pairwise_dist_deg": min_within_pairwise_dist_deg,
+        },
+    }
+
+    return internal_sample
+
+def check_circle_point_sets_internal(
+    internal_sample,
+    min_within_pairwise_dist_deg=1.8,
+    max_within_span_deg=45.0,
+    min_between_set_dist_deg=30.0,
+    min_center_dist_deg=70.0,
+    verbose=False,
+    avoid_within_set_symmetry=True,
+    symmetry_pair_tolerance_deg=1.0
+):
+    """
+    Check whether generated point sets meet requirements.
+
+    This function expects the internal sample structure.
+    """
+    set_labels = internal_sample["set_labels"]
+    sets = internal_sample["sets"]
+    info = internal_sample["generated_info"]
+
+    # 1. Check within-set pairwise distances
+    for label in set_labels:
+        points = sets[label]["all_points"]
+
+        for i in range(len(points)):
+            for j in range(i + 1, len(points)):
+                dist = angular_distance_deg(points[i], points[j])
+
+                if dist < min_within_pairwise_dist_deg:
+                    if verbose:
+                        print(
+                            f"Failed within-set pairwise distance for {label}: "
+                            f"points {points[i]} and {points[j]}, "
+                            f"distance={dist:.2f}, "
+                            f"required>={min_within_pairwise_dist_deg}"
+                        )
+                    return False
+
+        # 2. Check within-set span
+        span = circular_span_deg(points)
+
+        if span > max_within_span_deg:
+            if verbose:
+                print(
+                    f"Failed within-set span for {label}: "
+                    f"span={span:.2f}, "
+                    f"max allowed={max_within_span_deg}"
+                )
+            return False
+
+    # 3. Check between-set point separation
+    for a in range(len(set_labels)):
+        for b in range(a + 1, len(set_labels)):
+            label_a = set_labels[a]
+            label_b = set_labels[b]
+
+            points_a = sets[label_a]["all_points"]
+            points_b = sets[label_b]["all_points"]
+
+            for p_a in points_a:
+                for p_b in points_b:
+                    dist = angular_distance_deg(p_a, p_b)
+
+                    if dist < min_between_set_dist_deg:
+                        if verbose:
+                            print(
+                                f"Failed between-set distance for {label_a} and {label_b}: "
+                                f"points {p_a} and {p_b}, "
+                                f"distance={dist:.2f}, "
+                                f"required>={min_between_set_dist_deg}"
+                            )
+                        return False
+
+    # 4. Check between-center distances
+    for a in range(len(set_labels)):
+        for b in range(a + 1, len(set_labels)):
+            label_a = set_labels[a]
+            label_b = set_labels[b]
+
+            center_a = info[label_a]["jittered_mean_deg"]
+            center_b = info[label_b]["jittered_mean_deg"]
+
+            dist = angular_distance_deg(center_a, center_b)
+
+            if dist < min_center_dist_deg:
+                if verbose:
+                    print(
+                        f"Failed center distance for {label_a} and {label_b}: "
+                        f"centers {center_a} and {center_b}, "
+                        f"distance={dist:.2f}, "
+                        f"required>={min_center_dist_deg}"
+                    )
+                return False
+            
+    # 5. Avoid mirror symmetry within each set
+    if avoid_within_set_symmetry:
+        if not check_within_set_mirror_symmetry(
+            internal_sample=internal_sample,
+            symmetry_pair_tolerance_deg=symmetry_pair_tolerance_deg,
+            verbose=verbose,
+        ):
+            return False
+
+    return True
+
+def simplify_sample(internal_sample):
+    """
+    Convert an internal sample into the simple public return format.
+
+    Returns
+    -------
+    dict
+        Dictionary with labels as keys and generated point lists as values.
+    """
+    return {
+        label: internal_sample["sets"][label]["all_points"]
+        for label in internal_sample["set_labels"]
+    }
+
+###### helper function to pair color and residence
+import random
+
+
+def pair_two_dicts(dict1, dict2, field_names=None, seed=None):
+    """
+    Pair items from dict1 with items from dict2 without replacement.
+
+    Parameters
+    ----------
+    dict1 : dict
+        Dictionary with 4 keys. Each key maps to a list of 8 items.
+
+    dict2 : dict
+        Dictionary with 4 keys. Each key maps to a list of 8 items.
+
+    field_names : list of str, optional
+        A list of 4 strings used as output field names.
+
+        Default:
+            ["dict1_key", "dict1_item", "dict2_key", "dict2_item"]
+
+        Example:
+            ["cue_key", "cue_color", "target_key", "target_color"]
+
+    seed : int, optional
+        Random seed.
+
+    Returns
+    -------
+    dict
+        Result grouped by keys of dict1.
+    """
+
+    if field_names is None:
+        field_names = ["dict1_key", "dict1_item", "dict2_key", "dict2_item"]
+
+    if len(field_names) != 4:
+        raise ValueError("field_names must contain exactly 4 strings.")
+
+    if not all(isinstance(x, str) for x in field_names):
+        raise ValueError("All field_names must be strings.")
+
+    f_dict1_key, f_dict1_item, f_dict2_key, f_dict2_item = field_names
+
+    rng = random.Random(seed)
+
+    # Validate input
+    if len(dict1) != 4:
+        raise ValueError("dict1 must contain exactly 4 keys.")
+
+    if len(dict2) != 4:
+        raise ValueError("dict2 must contain exactly 4 keys.")
+
+    for k, v in dict1.items():
+        if len(v) != 8:
+            raise ValueError(f"dict1[{k!r}] must contain exactly 8 items.")
+
+    for k, v in dict2.items():
+        if len(v) != 8:
+            raise ValueError(f"dict2[{k!r}] must contain exactly 8 items.")
+
+    # Shuffle copies of dict1 lists
+    shuffled_dict1 = {
+        k: rng.sample(v, len(v))
+        for k, v in dict1.items()
+    }
+
+    # Shuffle copies of dict2 lists
+    shuffled_dict2 = {
+        k: rng.sample(v, len(v))
+        for k, v in dict2.items()
+    }
+
+    dict1_keys = list(dict1.keys())
+    dict2_keys = list(dict2.keys())
+
+    # Split each dict2 list into 4 chunks of size 2.
+    # Each dict1 key receives 2 items from each dict2 key.
+    dict2_chunks = {}
+
+    for k2 in dict2_keys:
+        items = shuffled_dict2[k2]
+
+        dict2_chunks[k2] = {
+            k1: items[i * 2:(i + 1) * 2]
+            for i, k1 in enumerate(dict1_keys)
+        }
+
+    result = {}
+
+    for k1 in dict1_keys:
+        items1 = shuffled_dict1[k1]
+
+        candidate_pairs = []
+
+        for k2 in dict2_keys:
+            for item2 in dict2_chunks[k2][k1]:
+                candidate_pairs.append({
+                    f_dict2_key: k2,
+                    f_dict2_item: item2
+                })
+
+        rng.shuffle(candidate_pairs)
+
+        result[k1] = []
+
+        for item1, pair_info in zip(items1, candidate_pairs):
+            result[k1].append({
+                f_dict1_key: k1,
+                f_dict1_item: item1,
+                f_dict2_key: pair_info[f_dict2_key],
+                f_dict2_item: pair_info[f_dict2_item],
+            })
+
+    return result
+
+def add_group_values(grouped_dict, new_key, values):
+    """
+    Add a new key-value pair to each dictionary inside a grouped result.
+
+    Parameters
+    ----------
+    grouped_dict : dict
+        Dictionary where each key maps to a list of dictionaries.
+
+        Example:
+            {
+                "A": [{...}, {...}],
+                "B": [{...}, {...}],
+                "C": [{...}, {...}],
+                "D": [{...}, {...}],
+            }
+
+    new_key : str
+        New key to add to each inner dictionary.
+
+    values : list
+        A list of 4 values.
+
+        The first value is assigned to the first group,
+        the second value to the second group,
+        the third value to the third group,
+        the fourth value to the fourth group.
+
+    Returns
+    -------
+    dict
+        A modified copy of grouped_dict.
+    """
+
+    if len(grouped_dict) != 4:
+        raise ValueError("grouped_dict must contain exactly 4 groups.")
+
+    if len(values) != 4:
+        raise ValueError("values must contain exactly 4 items.")
+
+    if not isinstance(new_key, str):
+        raise ValueError("new_key must be a string.")
+
+    group_keys = list(grouped_dict.keys())
+
+    result = {}
+
+    for group_key, value in zip(group_keys, values):
+        result[group_key] = []
+
+        for item_dict in grouped_dict[group_key]:
+            new_item_dict = item_dict.copy()
+            new_item_dict[new_key] = value
+            result[group_key].append(new_item_dict)
+
+    return result
+
+
+
+def assign_planets_and_group_by_planet(pairing_result, planets, seed=None):
+    """
+    Assign planet labels to each small dictionary, then regroup by planet.
+
+    Parameters
+    ----------
+    pairing_result : dict
+        Dictionary with 4 keys, e.g. "A", "B", "C", "D".
+        Each key maps to a list of 8 dictionaries.
+
+        Example:
+            {
+                "A": [{...}, {...}, ..., {...}],
+                "B": [{...}, {...}, ..., {...}],
+                "C": [{...}, {...}, ..., {...}],
+                "D": [{...}, {...}, ..., {...}],
+            }
+
+    planets : list
+        A list of 4 planet labels/items.
+
+        Example:
+            ["Mercury", "Venus", "Mars", "Jupiter"]
+
+    seed : int, optional
+        Random seed.
+
+    Returns
+    -------
+    dict
+        Dictionary grouped by planet.
+
+        Example:
+            {
+                "Mercury": [{..., "planet": "Mercury"}, ...],
+                "Venus": [{..., "planet": "Venus"}, ...],
+                "Mars": [{..., "planet": "Mars"}, ...],
+                "Jupiter": [{..., "planet": "Jupiter"}, ...],
+            }
+
+    Notes
+    -----
+    For each original group, e.g. pairing_result["A"]:
+    - there are 8 dictionaries;
+    - each planet is assigned exactly twice;
+    - assignment is randomized;
+    - each small dictionary gets a new key: "planet".
+    """
+
+    rng = random.Random(seed)
+
+    if len(planets) != 4:
+        raise ValueError("planets must contain exactly 4 items.")
+
+    if len(pairing_result) != 4:
+        raise ValueError("pairing_result must contain exactly 4 keys.")
+
+    grouped_by_planet = {planet: [] for planet in planets}
+
+    for original_group_key, item_list in pairing_result.items():
+
+        if len(item_list) != 8:
+            raise ValueError(
+                f"pairing_result[{original_group_key!r}] must contain exactly 8 dictionaries."
+            )
+
+        # Create planet assignment:
+        # each planet appears exactly twice for this group.
+        planet_assignments = []
+
+        for planet in planets:
+            planet_assignments.extend([planet, planet])
+
+        rng.shuffle(planet_assignments)
+
+        # Assign planets to dictionaries
+        for item_dict, planet in zip(item_list, planet_assignments):
+            new_item_dict = item_dict.copy()
+            new_item_dict["planet"] = planet
+
+            grouped_by_planet[planet].append(new_item_dict)
+
+    return grouped_by_planet
 # ============ Main Script ===========
 
 exp_info = {
     "participant_id": "",
-    "group": ["1", "2", "3"], # 1. color 2. residence 3. no rule
-    "condition": ["A", "B"], # A. Immediate Test B. Delayed Test
+    "condition": ["C", "R", "N"], # C. color R. residence N. no rule
+    "group": ["1", "2"], # 1. Immediate Test 2. Delayed Test
     "session": "1" # Session 1 includes learning and working memory test 2. Session 2 includes main memory test, generalization and color construction
 }
 dlg = gui.DlgFromDict(exp_info, title="Participant Information")
@@ -1546,6 +1718,42 @@ fresh_rate = win.getActualFrameRate()
 
 ### Create a keyboard object to check for key presses
 kb = keyboard.Keyboard()
+
+### Create color and residence stimuli
+initial_list= [0, 90, 180, 270]
+color_samples = generate_until_valid(['red','yellow','green','blue'],initial_list, n = 8,
+    kappa=80.0,
+    side_offset_deg=10.0,
+    mean_jitter_deg=2,
+    unit=0.1,
+    min_within_pairwise_dist_deg=4,
+    max_within_span_deg=70.0,
+    min_between_set_dist_deg=30.0,
+    min_center_dist_deg=60.0)
+
+residence_rotation = np.round(np.random.uniform(0,90),1)
+residence_initial = [(degree + residence_rotation) % 360 for degree in initial_list]
+residence_samples = generate_until_valid(['1st', '2nd', '3rd', '4th'], residence_initial, n = 8,
+    kappa=80.0,
+    side_offset_deg=10.0,
+    mean_jitter_deg=2,
+    unit=0.1,
+    min_within_pairwise_dist_deg=4,
+    max_within_span_deg=70.0,
+    min_between_set_dist_deg=30.0,
+    min_center_dist_deg=60.0)      
+
+random.shuffle(ALIEN_PLANETS)
+if exp_info['condition'] == 'C':
+    paired_stimuli = pair_two_dicts(color_samples, residence_samples, field_names=['color_group', 'color_degree', 'residence_group', 'residence_degree'])
+elif exp_info['condition'] == 'R':
+    paired_stimuli = pair_two_dicts(residence_samples, color_samples, field_names= ['residence_group', 'residence_degree', 'color_group', 'color_degree'])
+if exp_info['condition'] == 'C' or exp_info['condition'] == 'R':
+    color_residence_planet = add_group_values(paired_stimuli, 'planet', ALIEN_PLANETS)
+else:
+    paired_stimuli = pair_two_dicts(color_samples, residence_samples, field_names=['color_group', 'color_degree', 'residence_group', 'residence_degree'])
+    color_residence_planet = assign_planets_and_group_by_planet(paired_stimuli, ALIEN_PLANETS)
+                              
 
 ### Instructions
 instructions_text = visual.TextStim(

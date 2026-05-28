@@ -29,6 +29,71 @@ def quantize_angle(angle, unit=0.1, wrap=True):
 
     return value
 
+def signed_angular_offset_deg(angle, center):
+    """
+    Signed shortest angular offset from center to angle, in degrees.
+
+    Returns a value in [-180, 180).
+
+    Examples
+    --------
+    center = 90
+    angle = 82  -> -8
+    angle = 98  -> +8
+    """
+    return ((angle - center + 180.0) % 360.0) - 180.0
+
+def check_within_set_mirror_symmetry(
+    internal_sample,
+    symmetry_pair_tolerance_deg=1.0,
+    verbose=False,
+):
+    """
+    Reject a set if a left point and a right point are approximately
+    mirror-symmetric around the jittered set center.
+
+    Example rejected:
+        center = 90
+        left point = 82
+        right point = 98
+
+        offsets are -8 and +8.
+        abs(offset_left + offset_right) = 0.
+    """
+    set_labels = internal_sample["set_labels"]
+    sets = internal_sample["sets"]
+    info = internal_sample["generated_info"]
+
+    for label in set_labels:
+        center = info[label]["jittered_mean_deg"]
+
+        left_points = sets[label]["left_points"]
+        right_points = sets[label]["right_points"]
+
+        for lp in left_points:
+            left_offset = signed_angular_offset_deg(lp, center)
+
+            for rp in right_points:
+                right_offset = signed_angular_offset_deg(rp, center)
+
+                # Perfect mirror symmetry means:
+                # left_offset + right_offset == 0
+                symmetry_error = abs(left_offset + right_offset)
+
+                if symmetry_error <= symmetry_pair_tolerance_deg:
+                    if verbose:
+                        print(
+                            f"Failed within-set mirror symmetry for {label}: "
+                            f"center={center}, "
+                            f"left_point={lp}, right_point={rp}, "
+                            f"left_offset={left_offset:.2f}, "
+                            f"right_offset={right_offset:.2f}, "
+                            f"symmetry_error={symmetry_error:.2f}, "
+                            f"tolerance={symmetry_pair_tolerance_deg}"
+                        )
+                    return False
+
+    return True
 
 def sample_von_mises_deg(mean_deg, kappa, rng=None):
     """
@@ -237,6 +302,8 @@ def check_circle_point_sets_internal(
     min_between_set_dist_deg=30.0,
     min_center_dist_deg=70.0,
     verbose=False,
+    avoid_within_set_symmetry=True,
+    symmetry_pair_tolerance_deg=1.0
 ):
     """
     Check whether generated point sets meet requirements.
@@ -320,6 +387,15 @@ def check_circle_point_sets_internal(
                         f"required>={min_center_dist_deg}"
                     )
                 return False
+            
+    # 5. Avoid mirror symmetry within each set
+    if avoid_within_set_symmetry:
+        if not check_within_set_mirror_symmetry(
+            internal_sample=internal_sample,
+            symmetry_pair_tolerance_deg=symmetry_pair_tolerance_deg,
+            verbose=verbose,
+        ):
+            return False
 
     return True
 
@@ -352,6 +428,8 @@ def generate_until_valid(
     max_attempts=100000,
     rng=None,
     verbose=False,
+    avoid_within_set_symmetry=True,
+    symmetry_pair_tolerance_deg=1.0
 ):
     """
     Generate samples repeatedly until all requirements are met.
@@ -392,6 +470,8 @@ def generate_until_valid(
             max_within_span_deg=max_within_span_deg,
             min_between_set_dist_deg=min_between_set_dist_deg,
             min_center_dist_deg=min_center_dist_deg,
+            avoid_within_set_symmetry=avoid_within_set_symmetry,
+            symmetry_pair_tolerance_deg=symmetry_pair_tolerance_deg,
             verbose=verbose,
         )
 
@@ -401,6 +481,7 @@ def generate_until_valid(
     raise RuntimeError(
         f"Could not generate a valid sample after {max_attempts} attempts. "
         f"Try relaxing constraints, increasing kappa, or reducing n."
+        f"or lowering symmetry_pair_tolerance_deg."
     )
 
 
