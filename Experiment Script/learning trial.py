@@ -81,11 +81,12 @@ C_VALUE = 40 ## set the chroma value for the alien colors. This will control how
 
 ###### Ring Parameters ######
 # Color ring parameters
+COLOR_RING_UNIT = 0.1 #(degree)
 TEST_RING_CENTER = (WIN_SIZE[0] * 1/3, 0)
 COLOR_RING_RADIUS = 10
 COLOR_RING_WIDTH = 2
 COLOR_RING_ROTATION = True
-COLOR_RING_SEGMENTS = 360
+COLOR_RING_SEGMENTS = 360/COLOR_RING_UNIT
 SELECTOR_COLOR = 'white'
 
 
@@ -410,8 +411,8 @@ def color_test_screen(practiceNo = None, practice = False):
     )
     
 
-    initial_hue = int(round(np.random.uniform(0, 360)))
-    ring_rotation = int(round(np.random.uniform(0, 360)))
+    initial_hue = np.round(np.random.uniform(0, 360), 1)
+    ring_rotation = np.round(np.random.uniform(0, 360), 1)
 
     initial_angle = (initial_hue + ring_rotation) % 360
     hue_rgb_psy = create_hue_rgb_psy()
@@ -463,7 +464,7 @@ def color_test_screen(practiceNo = None, practice = False):
     p1, p2 = update_color_selector_geometry(TEST_RING_CENTER, INNER_R, OUTER_R, initial_angle)
     selector_line.start = p1
     selector_line.end = p2
-    initial_rgb = hue_rgb_psy[initial_hue]
+    initial_rgb = hue_rgb_psy[initial_hue/COLOR_RING_UNIT]
     update_alien_fill_color(fill_stim, initial_rgb)
     fill_stim.draw()
     outline_stim.draw()
@@ -552,7 +553,7 @@ def residence_test_screen(practiceNo = None, practice = False):
     )
 
     residence_ring_stim = residence_circle(TEST_RING_CENTER)
-    initial_bar_angle = int(round(np.random.uniform(0, 360)))
+    initial_bar_angle = np.round(np.random.uniform(0, 360),1)
     residence_bar_stim = residence_circle_bar()
     update_residence_bar(residence_bar_stim,initial_bar_angle)
 
@@ -631,7 +632,7 @@ def residence_test_screen(practiceNo = None, practice = False):
         submit_text.draw()
         win.flip()
 
-    selected_residence = current_angle
+    selected_residence = np.round(current_angle,1)
     rt = rt_clock.getTime()
     trial_end_time = now_time()
     if practice:
@@ -1130,10 +1131,10 @@ def update_selected_color_from_angle(selector_angle, hue_rgb_psy, ring_rotation 
   
     selected_hue = (selector_angle - ring_rotation) % 360
 
-    hue_idx = int(round(selected_hue)) % 360
+    hue_idx = np.round(selected_hue,1) % 360
     current_hue_idx = hue_idx
 
-    selected_rgb = hue_rgb_psy[hue_idx]
+    selected_rgb = hue_rgb_psy[hue_idx/COLOR_RING_UNIT]
     return current_hue_idx, selected_rgb
 
 def update_residence_bar(bar, angle):
@@ -1157,7 +1158,7 @@ def mouse_press_on_the_ring(mouse, mouse_on_ring, ring_center):
 
 ## This function precomputes the hue color, to allow for smooth updating of colors
 def create_hue_rgb_psy():
-    hue_rgb_psy = np.array([lch_to_psychopy_rgb(L_VALUE, C_VALUE, hh) for hh in range(360)]),
+    hue_rgb_psy = np.array([lch_to_psychopy_rgb(L_VALUE, C_VALUE, hh) for hh in range(360/COLOR_RING_UNIT)]),
     return hue_rgb_psy
 
 ## This function coverts the time_duration to frames, to allowed for more accurate time control
