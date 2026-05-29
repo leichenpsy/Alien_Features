@@ -12,6 +12,7 @@ import csv
 from PIL import Image
 from datetime import datetime
 from collections import defaultdict
+import os
 
 
 # ============ Define parameters ===========
@@ -20,6 +21,7 @@ WIN_SIZE = ()
 WIN_BG = () ## set window background color in rbg format, e.g. (0, 0, 0) for black, (1, 1, 1) for white, (-1, -1, -1) for black in rgb space
 RETINA = True ## set to True if using a retina display, False otherwise. This will ensure that the stimuli are displayed at the correct size on retina displays, which have a higher pixel density.
 Allow_escape = True
+N_BLOCKS = 3
 
 ##### Learning Trial Parameters #####
 ENCODING_TIME = 4.0 ## time to show each alien during encoding phase in seconds
@@ -657,10 +659,15 @@ def generatePracticeOrder(planet, color, residence):
         old_list = practice_set_1[i]
         new_list = [old_list[0], old_list[2], old_list[1]]
         practice_set_2.append(new_list)
-    return practice_set_1, practice_set_2
-    
-
-        
+    idx1, idx2 = random.sample(range(len(practice_set_2)), 2)
+    practice_set_2[idx1], practice_set_2[idx2] = practice_set_2[idx2], practice_set_2[idx1]
+    practice_order = []
+    for i in range(3):
+        practice_set = [practice_set_1[i], practice_set_2[i]]
+        practice_order.append(practice_set)
+    random.shuffle(practice_order)
+    return practice_order
+      
 def practice_flow(practiceOrder):
     practice_start = now_time()
     for i in range(len(practiceOrder)):
@@ -670,7 +677,7 @@ def practice_flow(practiceOrder):
     practice_duration = practice_end - practice_start
     return practice_start, practice_end, practice_duration
 
-def learning_trial(data, trial_no, block, alien, alien_name, color, planet, residence, practiceOrder):
+def learning_trial(data, trial_no, block, alien, alien_name, color, planet, residence, practiceOrder, mouse):
     trial_data = {
     "participant_id": exp_info["participant_id"],
     "group": exp_info["group"],
@@ -692,19 +699,26 @@ def learning_trial(data, trial_no, block, alien, alien_name, color, planet, resi
     saveData(['practice_start', 'practice_end', 'practice_duration', 'feedback_start', 'feedback_end', 'feedback_duration','trial_end_time'], [practice_start, practice_end, practice_duration, feedback_start, feedback_end, feedback_duration, trial_end_time], trial_data)
     data.append(trial_data)
 
-def study_block(data, block, practice_order, no_trials):
-    for i in range(no_trials):
-        trial_no = i+1
-        learning_trial(data, block, )
+def study_block(data, dic, block, practice_order):
+    mouse = event.Mouse(win=win)
+    ## generate study materials
+    study_stimuli = generate_stimuli_for_block(dic, block, practice_order)
+    ## generate study sequence
+    study_sequence = make_shuffled_list(study_stimuli)
+    ## control trial loops
+    for i in range(len(study_sequence)):
+        trial_no = i + 1
+        alien = study_sequence[i]['alien']
+        alien_folder = study_sequence[i]['alien_folder']
+        alien_name = study_sequence[i]['name']
+        alien_color = study_sequence[i]['color']
+        alien_planet = study_sequence[i]['planet']
+        alien_residence = study_sequence[i]['residence']
+        alien_practice_order = study_sequence[i]['practice_order']
+        learning_trial(data, trial_no, block, alien, alien_folder,alien_name, alien_color, alien_planet, alien_residence, alien_practice_order, mouse)
 
-def generateStudySequence():
 
-
-def generateColors():
-
-
-
-def generateStudyMaterials():
+    
     
     
 def generate_until_valid(
@@ -1816,6 +1830,30 @@ def add_name(dic, male_name_list, female_name_list):
                 male_idx += 1
     return dic
 
+def add_alien(dic, folder_names):
+    learning_path = ALIEN_PATH_LEARNING
+    random.shuffle(folder_names)
+    folder_idx = 0
+    for value in dic.values():
+        image_paths = os.listdir(learning_path + folder_names[folder_idx])
+        images = [f for f in os.listdir(image_paths) if os.path.isfile(os.path.join(image_paths, f))]
+        random.shuffle(image_paths)
+        for i in range(len(value)):
+            value[i]['alien'] = images[i]
+            value[i]['alien_folder'] = folder_names[folder_idx]
+        folder_idx += 1
+    return dic
+
+def add_order_group(dic):
+    for value in dic.values():
+        random.shuffle(value)
+        for i in range(len(value)):
+            if i < len(value)/2:
+                value[i]['practice_order_group'] = 1
+            else:
+                value[i]['practice_order_group'] = 2
+    return dic
+
 def add_others(dic, new_dic):
     for value in dic.values():
         for i in range(len(value)):
@@ -1876,6 +1914,59 @@ def create_stimuli_csv(data, file_name):
         writer.writeheader()
         writer.writerows(rows)
 
+
+def make_shuffled_list(grouped, max_attempts=100000, seed=None):
+    """
+    grouped is a dictionary like:
+    {
+        "A": [dict1, dict2, ...],
+        "B": [dict1, dict2, ...],
+        "C": [dict1, dict2, ...],
+        "D": [dict1, dict2, ...],
+    }
+
+    Returns a shuffled long list where no 3 consecutive dictionaries
+    come from the same original group.
+    """
+
+    rng = random.Random(seed)
+
+    # Add group information temporarily
+    long_list = []
+    for group_name, dict_list in grouped.items():
+        for d in dict_list:
+            long_list.append({
+                "_group": group_name,
+                "data": d
+            })
+
+    def is_valid(lst):
+        for i in range(len(lst) - 2):
+            if (
+                lst[i]["_group"] == lst[i + 1]["_group"] ==
+                lst[i + 2]["_group"]
+            ):
+                return False
+        return True
+
+    for _ in range(max_attempts):
+        shuffled = long_list[:]
+        rng.shuffle(shuffled)
+
+        if is_valid(shuffled):
+            # Remove temporary group labels before returning
+            return [item["data"] for item in shuffled]
+
+    raise ValueError("Could not find a valid shuffle.")
+
+def generate_stimuli_for_block(dic, block, practice_order):
+    for value in dic.values():
+        for i in range(len(value)):
+            if value[i]['practice_order_group'] == 1:
+                value[i]['practice_order'] = practice_order[block-1][0]
+            elif value[i]['practice_order_group'] == 2:
+                value[i]['practice_order'] = practice_order[block-1][1]
+    return dic
 
 
 # ============ Main Script ===========
@@ -1953,7 +2044,9 @@ else:
     color_residence_planet = pair_by_preassigned_planets(color_samples, residence_samples, ALIEN_PLANETS, field_names=['color_group', 'color_degree', 'residence_group', 'residence_degree'])
 
 name_added = add_name(color_residence_planet, ALIEN_M_NAMES, ALIEN_F_NAMES)
-full_stimuli = add_others(name_added,exp_info)
+alien_added = add_alien(name_added,['list_1', 'list_2', 'list_3', 'list_4'])
+order_group_added = add_order_group(alien_added)
+full_stimuli = add_others(order_group_added,exp_info)
 create_stimuli_csv(full_stimuli, exp_info["participant_id"])                            
 
 ### Instructions
@@ -1969,4 +2062,14 @@ instructions_text.draw()
 win.flip()
 event.waitKeys() ## wait for a key press to start the experiment
 
+
+### Create practice order
+practice_order = generatePracticeOrder('planet', 'color', 'residence')
+random.shuffle(practice_order)
+
+### Study blocks
+learning_data = []
+for i in range(N_BLOCKS):
+    block = i+1
+    study_block(learning_data, full_stimuli, block, practice_order)
 
