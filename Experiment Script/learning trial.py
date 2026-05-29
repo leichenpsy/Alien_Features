@@ -164,7 +164,7 @@ def display_fixation_cross():
 def alien_fill_image(alien_image, alien_pos=(0,0)):
     fill_stim = visual.ImageStim(
         win=win,
-        image=fill_image(ALIEN_PATH_LEARNING, alien_image),
+        image=fill_image(alien_image),
         pos=alien_pos,
         size=ALIEN_SIZE,
         units='pix',
@@ -176,7 +176,7 @@ def alien_fill_image(alien_image, alien_pos=(0,0)):
 def alien_outline_image(alien_image, alien_pos=(0,0)):
     outline_stim = visual.ImageStim(
         win=win,
-        image=outline_image(ALIEN_PATH_LEARNING + alien_image),
+        image=outline_image(alien_image),
         pos=alien_pos,
         size=ALIEN_SIZE,
         units='pix',
@@ -227,27 +227,37 @@ def residence_circle_bar():
     return residence_bar_stim
 
 
-def encoding_screen_draw(alien_image, alien_color, alien_pos, alien_fake_name, alien_planet, residence_ring_pos ,residence_angle): 
-    fill_stim = alien_fill_image(alien_image, alien_pos)
+def encoding_screen_draw(alien_info): 
+    alien = alien_info['alien']
+    alien_folder = alien_info['alien_folder']
+    alien_pos = ALIEN_POS
+    alien_color = alien_info['alien_color']
+    alien_planet = alien_info['alien_planet']
+    alien_residence = alien_info['alien_residence']
+    alien_name = alien_info['alien_name']
+
+    fill_alien_image = ALIEN_PATH_LEARNING + alien_folder + 'fill_layer' + alien
+    fill_stim = alien_fill_image(fill_alien_image, alien_pos)
     update_alien_fill_color(fill_stim, alien_color)
     fill_stim.draw()
-    outline_stim = alien_outline_image(alien_image, alien_pos)
+    outline_alien_image = ALIEN_PATH_LEARNING + alien_folder + 'outline_layer' + alien
+    outline_stim = alien_outline_image(outline_alien_image, alien_pos)
     outline_stim.draw()
-    fake_name_stim = alien_text(alien_fake_name, ALIEN_NAME_POS, ALIEN_NAME_HEIGHT, ALIEN_NAME_COLOR)
+    fake_name_stim = alien_text(alien_name, ALIEN_NAME_POS, ALIEN_NAME_HEIGHT, ALIEN_NAME_COLOR)
     fake_name_stim.draw()
     planet_text_stim = alien_text(alien_planet, ALIEN_PLANET_POS, ALIEN_PLANET_HEIGHT, ALIEN_PLANET_COLOR )
     planet_text_stim.draw()
-    residence_circle_stim = residence_circle(residence_ring_pos)
+    residence_circle_stim = residence_circle(ALIEN_POS)
     residence_circle_stim.draw()
     residence_bar_stim = residence_circle_bar()
-    update_residence_bar(residence_circle_stim, residence_angle)
+    update_residence_bar(residence_circle_stim, alien_residence)
     residence_bar_stim.draw()
 
-def encoding_screen_present(alien_image, alien_color, alien_pos, alien_fake_name, alien_planet, duration, residence_ring_pos,residence_angle): 
-    nFrames = time_to_frame(duration)
+def encoding_screen_present(alien_info): 
+    nFrames = time_to_frame(ENCODING_TIME)
     encoding_start = now_time()
     for frame in range(nFrames):
-        encoding_screen_draw(alien_image, alien_color, alien_pos, alien_fake_name, alien_planet, residence_ring_pos ,residence_angle)
+        encoding_screen_draw(alien_info)
         win.flip()
     encoding_end = now_time()
     encoding_duration = encoding_end - encoding_start
@@ -293,7 +303,11 @@ def detect_label_selection(mouse, labels_stim):
         click_label = True
     return click_label, selected_label
 
-def planet_test_screen(practiceNo, practice = False):
+def planet_test_screen(practiceNo, alien_info ,practice = False):
+    alien = alien_info['alien']
+    alien_name = alien_info['alien_name']
+    alien_folder = alien_info['alien_folder']
+    alien_planet = alien_info['alien_planet']
     test_alien = alien_outline_image(alien, TEST_ALIEN_POS)
     test_alien.draw()
     test_alien_name = visual.TextStim(
@@ -667,17 +681,27 @@ def generatePracticeOrder(planet, color, residence):
         practice_order.append(practice_set)
     random.shuffle(practice_order)
     return practice_order
+
+def practice_by_order(content, practiceNo, alien_info):
+    if content == 'plant':
+        planet_test_screen(practiceNo, alien_info, True)
+    elif content == 'color':
+        color_test_screen(practiceNo, alien_info, True)
+    elif content == 'residence':
+        residence_test_screen(practiceNo, alien_info, True)
       
-def practice_flow(practiceOrder):
+def practice_flow(alien_info):
     practice_start = now_time()
+    practiceOrder = alien_info['alien_practice_order']
     for i in range(len(practiceOrder)):
         practiceNo = i + 1
-        practiceOrder[i](practiceNo, True)
+        practiceContent = practiceOrder[i]
+        practice_by_order(practiceContent, practiceNo, alien_info)
     practice_end = now_time()
     practice_duration = practice_end - practice_start
     return practice_start, practice_end, practice_duration
 
-def learning_trial(data, trial_no, block, alien, alien_name, color, planet, residence, practiceOrder, mouse):
+def learning_trial(data, trial_no, block, alien_info):
     trial_data = {
     "participant_id": exp_info["participant_id"],
     "group": exp_info["group"],
@@ -688,13 +712,12 @@ def learning_trial(data, trial_no, block, alien, alien_name, color, planet, resi
     }
     learning_trial_start = now_time()
     fix_start, fix_end, fix_duration = display_fixation_cross()
-    encoding_start, encoding_end, encoding_duration = encoding_screen_present(alien, color, ALIEN_POS, alien_name, planet, ENCODING_TIME, ALIEN_POS, residence)
+    encoding_start, encoding_end, encoding_duration = encoding_screen_present(alien_info)
     saveData(['trial_no', 'block','learning_trial_start','fix_start','fix_end','fix_duration', 'encoding_start', 'encoding_end', 'encoding_duration'], [trial_no, block,learning_trial_start,fix_start, fix_end, fix_duration, encoding_start, encoding_end, encoding_duration], trial_data)
     blank_screen_present(BLANK_TIME)
-    mouse = event.Mouse(win=win)
-    practice_start, practice_end, practice_duration = practice_flow(practiceOrder)
+    practice_start, practice_end, practice_duration = practice_flow(alien_info)
     blank_screen_present(BLANK_TIME)
-    feedback_start, feedback_end, feedback_duration = encoding_screen_present(alien, color, ALIEN_POS, alien_name, planet, FEEDBACK_TIME, ALIEN_POS, residence)
+    feedback_start, feedback_end, feedback_duration = encoding_screen_present(alien_info)
     trial_end_time = now_time()
     saveData(['practice_start', 'practice_end', 'practice_duration', 'feedback_start', 'feedback_end', 'feedback_duration','trial_end_time'], [practice_start, practice_end, practice_duration, feedback_start, feedback_end, feedback_duration, trial_end_time], trial_data)
     data.append(trial_data)
@@ -708,14 +731,15 @@ def study_block(data, dic, block, practice_order):
     ## control trial loops
     for i in range(len(study_sequence)):
         trial_no = i + 1
-        alien = study_sequence[i]['alien']
-        alien_folder = study_sequence[i]['alien_folder']
-        alien_name = study_sequence[i]['name']
-        alien_color = study_sequence[i]['color']
-        alien_planet = study_sequence[i]['planet']
-        alien_residence = study_sequence[i]['residence']
-        alien_practice_order = study_sequence[i]['practice_order']
-        learning_trial(data, trial_no, block, alien, alien_folder,alien_name, alien_color, alien_planet, alien_residence, alien_practice_order, mouse)
+        alien_info = {
+            'alien': study_sequence[i]['alien'],
+            'alien_folder' : study_sequence[i]['alien_folder'],
+            'alien_name' : study_sequence[i]['name'],
+            'alien_color' : study_sequence[i]['color'],
+            'alien_planet' : study_sequence[i]['planet'],
+            'alien_residence' : study_sequence[i]['residence'],
+            'alien_practice_order' : study_sequence[i]['practice_order']}
+        learning_trial(data, trial_no, block, alien_info)
 
 
     
@@ -978,8 +1002,8 @@ def time_to_frame(time_in_seconds):
     return math.ceil(time_in_seconds * fresh_rate)
 
 ## This function generates the initial fill image
-def fill_image(image_path, image_name, mask_color = (0, 0, 0)):
-    fill_path = image_path + "fill_layer/" + image_name ## set the path to the fill layer images. These images should be created in advance and should be the same size as the alien images. The fill layer images should have a transparent background and the alien shape filled with white (255, 255, 255) in rgb space. This will allow us to use the color parameter in the ImageStim to change the color of the alien images during the experiment.
+def fill_image(image_path):
+    fill_path = image_path  ## set the path to the fill layer images. These images should be created in advance and should be the same size as the alien images. The fill layer images should have a transparent background and the alien shape filled with white (255, 255, 255) in rgb space. This will allow us to use the color parameter in the ImageStim to change the color of the alien images during the experiment.
     fill_rgba = np.array(Image.open(fill_path).convert("RGBA"), dtype=np.uint8)
     h_img, w_img = fill_rgba.shape[:2]
     fill_rgb = fill_rgba[:, :, :3]
@@ -1004,8 +1028,8 @@ def fill_image(image_path, image_name, mask_color = (0, 0, 0)):
     return gray_fill_image
 
 ## This function generates outline image. 
-def outline_image(image_path, image_name):
-    outline_path = image_path + "outline_layer/" + image_name ## set the path to the outline layer images. These images should be created in advance and should be the same size as the alien images. The outline layer images should have a transparent background and the alien shape filled with white (255, 255, 255) in rgb space. This will allow us to use the color parameter in the ImageStim to change the color of the alien images during the experiment.
+def outline_image(image_path):
+    outline_path = image_path  ## set the path to the outline layer images. These images should be created in advance and should be the same size as the alien images. The outline layer images should have a transparent background and the alien shape filled with white (255, 255, 255) in rgb space. This will allow us to use the color parameter in the ImageStim to change the color of the alien images during the experiment.
     outline_rgba = np.array(Image.open(outline_path).convert("RGBA"), dtype=np.uint8)
     
     get_outline_image = Image.fromarray(outline_rgba, mode="RGBA")
