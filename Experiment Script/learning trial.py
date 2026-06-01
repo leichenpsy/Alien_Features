@@ -91,7 +91,8 @@ COLOR_RING_RADIUS = 10
 COLOR_RING_WIDTH = 2
 COLOR_RING_ROTATION = True
 COLOR_RING_SEGMENTS = 360/COLOR_RING_UNIT
-SELECTOR_COLOR = 'white'
+COLOR_BAR_COLOR = 'black'
+COLOR_BAR_WIDTH = 0.03
 
 
 
@@ -100,7 +101,7 @@ RESIDENCE_RING_THIKNESS = 2
 RESIDENCE_RING_RADIUS = 10
 RESIDENCE_RING_COLOR = ()
 RESIDENCE_RING_EDGES = 512 #the number of line segments to draw the circle shape, higher number means smoother and rounder
-RESIDENCE_BAR_WIDTH = 0.003
+RESIDENCE_BAR_WIDTH = 0.03
 RESIDENCE_BAR_LENGTH = 0.1
 RESIDENCE_BAR_COLOR = 'black'
 
@@ -188,8 +189,7 @@ def alien_outline_image(alien_image, alien_pos=(0,0)):
     
 def update_alien_fill_color(alien_stim, new_color):
     alien_stim.color = new_color
-    alien_stim.draw()
-    win.flip()
+
 
 
 def alien_text(text_content, text_pos, height, textColor):
@@ -203,8 +203,8 @@ def alien_text(text_content, text_pos, height, textColor):
     )
     return alien_text_stim
 
-def residence_circle(position):
-    residence_circle_stim = visual.Circle(
+def residence_ring(position):
+    residence_ring_stim = visual.Circle(
         win = win,
         radius = RESIDENCE_RING_RADIUS,
         edges = RESIDENCE_RING_EDGES,
@@ -214,17 +214,18 @@ def residence_circle(position):
         interpolate = True,
         pos = position
     )
-    return residence_circle_stim
+    return residence_ring_stim
     
-def residence_circle_bar():
-    residence_bar_stim = visual.Rect(
+def residence_ring_bar():
+    residence_bar_stim = visual.Line(
         win = win,
-        width = RESIDENCE_BAR_WIDTH,
-        height = RESIDENCE_BAR_LENGTH,
-        fillColor = RESIDENCE_BAR_COLOR,
+        start = (0, 0),
+        end = (0, 0),
         lineColor = RESIDENCE_BAR_COLOR,
-        interpolate = True)
+        lineWidth = RESIDENCE_BAR_WIDTH
+    )
     return residence_bar_stim
+
 
 
 def encoding_screen_draw(alien_info): 
@@ -247,10 +248,10 @@ def encoding_screen_draw(alien_info):
     fake_name_stim.draw()
     planet_text_stim = alien_text(alien_planet, ALIEN_PLANET_POS, ALIEN_PLANET_HEIGHT, ALIEN_PLANET_COLOR )
     planet_text_stim.draw()
-    residence_circle_stim = residence_circle(ALIEN_POS)
-    residence_circle_stim.draw()
-    residence_bar_stim = residence_circle_bar()
-    update_residence_bar(residence_circle_stim, alien_residence)
+    residence_ring_stim = residence_ring(ALIEN_POS)
+    residence_ring_stim.draw()
+    residence_bar_stim = residence_ring_bar()
+    update_residence_bar(ALIEN_POS, residence_bar_stim, alien_residence)
     residence_bar_stim.draw()
 
 def encoding_screen_present(alien_info): 
@@ -298,17 +299,18 @@ def draw_test_labels(stim): #draw all four labels
 def detect_label_selection(mouse, labels_stim):   
     pt = mouse.getPos()
     click_label = False 
-    selected_label = next((label for label in labels_stim if point_in_rect(pt,label[1], TEST_LABEL_SIZE[0], TEST_LABEL_SIZE[1])), None)
+    selected_label = next((label for label in labels_stim if point_in_rect(pt,label.pos, TEST_LABEL_SIZE[0], TEST_LABEL_SIZE[1])), None)
     if selected_label is not None:
         click_label = True
     return click_label, selected_label
 
-def planet_test_screen(practiceNo, alien_info ,practice = False):
+def planet_test_screen(practiceNo, alien_info, practice = False):
     alien = alien_info['alien']
     alien_name = alien_info['alien_name']
     alien_folder = alien_info['alien_folder']
     alien_planet = alien_info['alien_planet']
-    test_alien = alien_outline_image(alien, TEST_ALIEN_POS)
+    alien_path = ALIEN_PATH_LEARNING + alien_folder + 'outline_layer' + alien
+    test_alien = alien_outline_image(alien_path, TEST_ALIEN_POS)
     test_alien.draw()
     test_alien_name = visual.TextStim(
         text = alien_name,
@@ -331,6 +333,7 @@ def planet_test_screen(practiceNo, alien_info ,practice = False):
     win.callOnFlip(rt_clock.reset)
     win.flip()
     trial_start_time = now_time()
+    mouse = event.Mouse(visible=True)
     while True:
         test_alien.draw()
         test_alien_name.draw()
@@ -345,7 +348,7 @@ def planet_test_screen(practiceNo, alien_info ,practice = False):
                 rt = rt_clock.getTime()
                 trial_end_time = now_time()
                 if practice:
-                    saveData(['practiceNo','practice_planet_start_time','practice_planet_alien', 'practice_planet_correct', 'practice_planet_selected', 'practice_planet_rt', 'practice_end_time'],[practiceNo,trial_start_time, alien, planet, selected_planet,rt, trial_end_time], trial_data)
+                    saveData(['practiceNo','practice_planet_start_time','practice_planet_alien', 'practice_planet_correct', 'practice_planet_selected', 'practice_planet_rt', 'practice_end_time'],[practiceNo,trial_start_time, alien, alien_planet, selected_planet,rt, trial_end_time], trial_data)
                 else:
                     saveData(['test_planet_start_time', 'test_planet_alien', 'test_planet_correct', 'test_planet_selected', 'test_planet_rt', 'test_end_time'], [trial_start_time, alien, planet, selected_planet,rt, trial_end_time], trial_data)
 
@@ -410,9 +413,15 @@ def draw_color_ring(ring_sectors):
     for sector in ring_sectors:
         sector.draw()
 
-def color_test_screen(practiceNo = None, practice = False):
-    fill_stim = alien_fill_image(alien, TEST_ALIEN_POS)
-    outline_stim = alien_outline_image(alien, TEST_ALIEN_POS)
+def color_test_screen(practiceNo, alien_info, practice = False):
+    alien = alien_info['alien']
+    alien_name = alien_info['alien_name']
+    alien_folder = alien_info['alien_folder']
+    alien_color = alien_info['alien_color']
+    alien_outline_path = ALIEN_PATH_LEARNING + alien_folder + 'outline_layer' + alien
+    alien_fill_path = ALIEN_PATH_LEARNING + alien_folder + 'fill_layer' + alien
+    fill_stim = alien_fill_image(alien_fill_path, TEST_ALIEN_POS)
+    outline_stim = alien_outline_image(alien_outline_path, TEST_ALIEN_POS)
     test_alien_name = visual.TextStim(
         text = alien_name,
         pos = TEST_ALIEN_NAME_POS,
@@ -459,8 +468,8 @@ def color_test_screen(practiceNo = None, practice = False):
         win = win,
         start = (0, 0),
         end = (0, 0),
-        lineColor = SELECTOR_COLOR,
-        lineWidth =4
+        lineColor = COLOR_BAR_COLOR,
+        lineWidth = COLOR_BAR_WIDTH
     )
     submit_rect = visual.Rect(
         win = win,
@@ -494,12 +503,13 @@ def color_test_screen(practiceNo = None, practice = False):
     selector_line.draw()
     submit_rect.draw()
     submit_text.draw()
+    mouse = event.Mouse(visible=True)
     rt_clock = core.Clock()
     win.callOnFlip(rt_clock.reset)
     win.flip()
     trial_start_time = now_time()
     submitted = False
-    current_hue_idx = initial_hue
+    current_hue_idx = initial_hue/COLOR_RING_UNIT
     dragging = False
     prev_left = False
 
@@ -514,7 +524,7 @@ def color_test_screen(practiceNo = None, practice = False):
         if new_press:
             if point_in_rect(pt, TEST_SUBMIT_POS, TEST_SUBMIT_SIZE[0], TEST_SUBMIT_SIZE[1]):
                 submitted = True
-            elif mouse_on_ring(pt): 
+            elif mouse_on_bar(pt, selector_line.start, selector_line.end) and not point_in_rect(pt, TEST_SUBMIT_POS, TEST_SUBMIT_SIZE[0], TEST_SUBMIT_SIZE[1]): 
                 dragging = True
                 angle = angle_from_xy(pt[0],pt[1], TEST_RING_CENTER)
                 p1, p2 = update_color_selector_geometry(TEST_RING_CENTER, INNER_R, OUTER_R, angle)
@@ -548,13 +558,18 @@ def color_test_screen(practiceNo = None, practice = False):
     rt = rt_clock.getTime()
     trial_end_time = now_time()
     if practice:
-        saveData(['practice_color_No', 'practice_color_start_time', 'practice_color_alien', 'practice_color_correct', 'practice_color_selected', 'practice_color_rt', 'practice_color_end_time', 'practice_color_ring_initial_hue','practice_color_ring_rotation'], [practiceNo, trial_start_time, alien, color, selected_hue, rt, trial_end_time, initial_hue, ring_rotation], trial_data)
+        saveData(['practice_color_No', 'practice_color_start_time', 'practice_color_alien', 'practice_color_correct', 'practice_color_selected', 'practice_color_rt', 'practice_color_end_time', 'practice_color_ring_initial_hue','practice_color_ring_rotation'], [practiceNo, trial_start_time, alien, alien_color, selected_hue, rt, trial_end_time, initial_hue, ring_rotation], trial_data)
     else:
-        saveData(['test_color_start_time','test_color_alien', 'test_color_correct', 'test_color_selected', 'test_color_rt', 'test_color_end_time', 'test_color_ring_initial_hue','test_color_ring_rotation'], [trial_start_time, alien, color, selected_hue, rt, trial_end_time, initial_hue, ring_rotation], trial_data)
+        saveData(['test_color_start_time','test_color_alien', 'test_color_correct', 'test_color_selected', 'test_color_rt', 'test_color_end_time', 'test_color_ring_initial_hue','test_color_ring_rotation'], [trial_start_time, alien, alien_color, selected_hue, rt, trial_end_time, initial_hue, ring_rotation], trial_data)
    
 
-def residence_test_screen(practiceNo = None, practice = False):
-    outline_stim = alien_outline_image(alien, TEST_ALIEN_POS)
+def residence_test_screen(practiceNo, alien_info, practice = False):
+    alien = alien_info['alien']
+    alien_name = alien_info['alien_name']
+    alien_folder = alien_info['alien_folder']
+    alien_residence = alien_info['alien_residence']
+    outline_path = ALIEN_PATH_LEARNING + alien_folder + 'outline_layer' + alien
+    outline_stim = alien_outline_image(outline_path, TEST_ALIEN_POS)
     test_alien_name = visual.TextStim(
         text = alien_name,
         pos = TEST_ALIEN_NAME_POS,
@@ -570,10 +585,10 @@ def residence_test_screen(practiceNo = None, practice = False):
         height = TEST_QUESTION_HEIGHT
     )
 
-    residence_ring_stim = residence_circle(TEST_RING_CENTER)
+    residence_ring_stim = residence_ring(TEST_RING_CENTER)
     initial_bar_angle = np.round(np.random.uniform(0, 360),1)
-    residence_bar_stim = residence_circle_bar()
-    update_residence_bar(residence_bar_stim,initial_bar_angle)
+    residence_bar_stim = residence_ring_bar()
+    update_residence_bar(TEST_RING_CENTER,residence_bar_stim,initial_bar_angle)
 
     submit_rect = visual.Rect(
         win = win,
@@ -609,6 +624,7 @@ def residence_test_screen(practiceNo = None, practice = False):
     current_angle = initial_bar_angle
     dragging = False
     prev_left = False
+    mouse = event.Mouse(visible=True)
 
     while not submitted:
         mouse.clickRest()
@@ -616,9 +632,8 @@ def residence_test_screen(practiceNo = None, practice = False):
         mx = pt[0]
         my = pt[1]
 
-        bar_pos = residence_bar_stim.pos
-        bx = bar_pos[0]
-        by = bar_pos[1]
+        bar_start = residence_bar_stim.start
+        bar_end = residence_bar_stim.end
 
         mouse_on_submit = False
         distance_to_bar = math.sqrt((mx - bx) ** 2 + (my - by) ** 2)
@@ -632,11 +647,11 @@ def residence_test_screen(practiceNo = None, practice = False):
             if point_in_rect(pt, TEST_SUBMIT_POS, TEST_SUBMIT_SIZE[0], TEST_SUBMIT_SIZE[1]):
                 submitted = True
                 mouse_on_submit = True
-            elif distance_to_bar <= grab_radius and not mouse_on_submit:
+            elif mouse_on_bar(pt, bar_start, bar_end, 0.03) and not mouse_on_submit:
                 dragging = True
         if dragging and left:
             current_angle = angle_from_xy(mx, my, TEST_RING_CENTER)
-            update_residence_bar(residence_bar_stim, current_angle)
+            update_residence_bar(TEST_RING_CENTER, residence_bar_stim, current_angle)
         if dragging and new_release:
             dragging = False
 
@@ -654,7 +669,7 @@ def residence_test_screen(practiceNo = None, practice = False):
     rt = rt_clock.getTime()
     trial_end_time = now_time()
     if practice:
-        saveData(['practice_residence_no', 'practice_residence_start_time', 'practice_residence_alien', 'practice_residence_correct', 'practice_residence_selected', 'practice_residence_rt', 'practice_residence_end_time', 'practice_residence_ring_initial_angle'],[practiceNo, trial_start_time, alien, residence, selected_residence, rt, trial_end_time, initial_bar_angle], trial_data)
+        saveData(['practice_residence_no', 'practice_residence_start_time', 'practice_residence_alien', 'practice_residence_correct', 'practice_residence_selected', 'practice_residence_rt', 'practice_residence_end_time', 'practice_residence_ring_initial_angle'],[practiceNo, trial_start_time, alien, alien_residence, selected_residence, rt, trial_end_time, initial_bar_angle], trial_data)
     else:
         saveData(['test_residence_start_time', 'test_residence_alien', 'test_residence_correct', 'test_residence_selected', 'test_residence_rt', 'test_residence_end_time', 'test_residence_ring_initial_angle'][trial_start_time, alien, residence, selected_residence, rt, trial_end_time, initial_bar_angle], trial_data)
     
@@ -723,7 +738,6 @@ def learning_trial(data, trial_no, block, alien_info):
     data.append(trial_data)
 
 def study_block(data, dic, block, practice_order):
-    mouse = event.Mouse(win=win)
     ## generate study materials
     study_stimuli = generate_stimuli_for_block(dic, block, practice_order)
     ## generate study sequence
@@ -741,8 +755,6 @@ def study_block(data, dic, block, practice_order):
             'alien_practice_order' : study_sequence[i]['practice_order']}
         learning_trial(data, trial_no, block, alien_info)
 
-
-    
     
     
 def generate_until_valid(
@@ -956,6 +968,20 @@ def mouse_on_ring(mouse_pos, ring_center, inner_ring, outer_ring):
     )
     return inner_ring <= d <= outer_ring
 
+def mouse_on_bar(mouse_pos, line_start, line_end, tolerance=5):
+    mx, my = mouse_pos
+    x1, y1 = line_start
+    x2, y2 = line_end
+    line_len = math.hypot(x2 - x1, y2 - y1)
+    if line_len == 0:
+        return math.hypot(mx - x1, my - y1) <= tolerance
+    t = ((mx - x1) * (x2 - x1) + (my - y1) * (y2 - y1)) / (line_len ** 2)
+    t = max(0, min(1, t))
+    closest_x = x1 + t * (x2 - x1)
+    closest_y = y1 + t * (y2 - y1)
+    return math.hypot(mx - closest_x, my - closest_y) <= tolerance
+
+
 ## This function converts the selection (polar system) to the rgb value that can be used for Psychopy drawing
 def update_selected_color_from_angle(selector_angle, hue_rgb_psy, ring_rotation = 0):
   
@@ -967,12 +993,13 @@ def update_selected_color_from_angle(selector_angle, hue_rgb_psy, ring_rotation 
     selected_rgb = hue_rgb_psy[hue_idx/COLOR_RING_UNIT]
     return current_hue_idx, selected_rgb
 
-def update_residence_bar(bar, angle):
+def update_residence_bar(ring_center, bar, angle):
+    length = RESIDENCE_BAR_LENGTH/2
     # Bar midpoint exactly on ring
-    x, y = pol_to_cart(angle, RESIDENCE_RING_RADIUS)
-    bar.pos = (x, y)
-    # Radial orientation
-    bar.ori = 90 - angle
+    p1 = pol_to_cart(angle, RESIDENCE_RING_RADIUS + length) + np.array(ring_center)
+    p2 = pol_to_cart(angle, RESIDENCE_RING_RADIUS - length) + np.array(ring_center)
+    bar.start = p1
+    bar.end = p2
 
 ## This function updates the actions when mouse is clicked left
 def mouse_press_on_the_ring(mouse, mouse_on_ring, ring_center):
