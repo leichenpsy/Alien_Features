@@ -30,7 +30,8 @@ INTERVAL_TIME = 1.0 ## time to show blank screen between learning trials in seco
 FIXATION_TIME = np.random.uniform(0.75,1.25) ## time to show fixation cross before each trial in seconds (randomized between 0.75 and 1.25 second)  
 BLOCK_BREAK_TIME = 90.0 ## time to show break screen between learning blocks in seconds 
 FEEDBACK_TIME = 1.5 # Time to re-present the encoding screen after all 3 practice in seconds
-STUDY_SESSION_BREAK_TIME = 300.0 ## time to show break screen between study session and test session in seconds. Set to a longer duration to allow participants to take a break and prepare for the testing session.
+STUDY_SESSION_BREAK_TIME = 300.0 ## time to show break screen between study session and working memory session in seconds. 
+STUDY_TEST_INTERVAL = 1200.0 ## time between the end of the study session and the beginning of the test session in seconds for the immediate test group. 
 ###### Stimulus Parameters ######
 ALIEN_SIZE = 100 ## size of the alien images in pixels
 MASK_THRESHOLD = 180 
@@ -129,9 +130,17 @@ NUM_GENERALIZATION_PER_GROUP = 2
 NUM_GENERALIZATION_GROUPS = 4
 
 ### Phase settings for the working memory test, the memory test, generalization test, color reconstruction. 
-WK_MEMORY_STATUS = True ## set to True if working memory is included in the experiment, False otherwise.
+WM_MEMORY_STATUS = True ## set to True if working memory is included in the experiment, False otherwise.
 TESTING_FIRST = True ## Set to true of memory test comes before generalization test, false if generalization test comes first.
 COLOR_RECONSTRUCTION = True ## set to True if color reconstruction task is included in the experiment, False otherwise.
+
+
+### Working memory test settings
+WM_N_TRIALS = 12
+DIGIT_LENGTH = 8
+DIGIT_DISPLAY_TIME = 2.0
+WM_RETENTION_INTERVAL = 3.0
+WM_INTER_TRIAL_TIME = 1.0
 
 
 # ============ Define Key functions ===========
@@ -637,8 +646,6 @@ def residence_test_screen(practiceNo, alien_info, data, practice = False):
         bar_end = residence_bar_stim.end
 
         mouse_on_submit = False
-        distance_to_bar = math.sqrt((mx - bx) ** 2 + (my - by) ** 2)
-        grab_radius = max(RESIDENCE_BAR_LENGTH  * 0.8, 0.03)
         left = mouse.getPressed()[0]
 
         new_press = left and not prev_left
@@ -700,11 +707,11 @@ def generatePracticeOrder(planet, color, residence):
 
 def practice_by_order(content, practiceNo, alien_info, trial_data):
     if content == 'plant':
-        planet_test_screen(practiceNo, alien_info, True)
+        planet_test_screen(practiceNo, alien_info, trial_data, True)
     elif content == 'color':
-        color_test_screen(practiceNo, alien_info, True)
+        color_test_screen(practiceNo, alien_info, trial_data,True)
     elif content == 'residence':
-        residence_test_screen(practiceNo, alien_info, True)
+        residence_test_screen(practiceNo, alien_info, trial_data, True)
       
 def practice_flow(alien_info, trial_data):
     practice_start = now_time()
@@ -858,7 +865,99 @@ def generate_until_valid(
         f"or lowering symmetry_pair_tolerance_deg."
     )
 
+######## Working Memory Trial Function. This function will control the flow of each working memory trial, including the presentation of the digit sequence, the retention interval, and the recall phase. It will also handle the collection of responses during the recall phase and the scoring of those responses based on their accuracy compared to the presented digit sequence. The parameters defined above will be used to control the timing and structure of the working memory trials.
 
+def working_memory_trial(trial_no,session_start,data):
+    trial_data = {
+        "trial_no": trial_no,
+        'session': 'working_memory test',
+        'wm_session_start': session_start
+    }
+    trial_data.update(exp_info)
+    wm_trial_start = now_time()
+    fixation_start, fixation_end, fixation_duration = display_fixation_cross()
+    saveData(['wm_trial_start', 'fixation_start', 'fixation_end', 'fixation_duration'], [wm_trial_start, fixation_start, fixation_end, fixation_duration], trial_data)
+    digit_sequence = generate_digit_sequence(DIGIT_LENGTH)
+    display_digit_sequence(digit_sequence, DIGIT_DISPLAY_TIME)
+    retention_interval_start = now_time()
+    blank_screen_present(WM_RETENTION_INTERVAL)
+    retention_interval_end = now_time()
+    recall_response, rt = collect_recall_response(DIGIT_LENGTH)
+    recall_end_time = now_time()
+    span, accuracy = score_recall_response(digit_sequence, recall_response)
+    wm_trial_end = now_time()
+    wm_trial_duration = wm_trial_end - wm_trial_start
+    saveData(['digit_sequence', 'retention_interval_start', 'retention_interval_end', 'recall_response', 'recall_rt', 'recall_end_time', 'recall_span', 'recall_accuracy', 'wm_trial_end', 'wm_trial_duration'], [digit_sequence, retention_interval_start, retention_interval_end, recall_response, rt, recall_end_time, span, accuracy, wm_trial_end, wm_trial_duration], trial_data)
+    data.append(trial_data)
+
+def generate_digit_sequence(length):
+    return ''.join(random.choices('0123456789', k=length))
+def display_digit_sequence(sequence, display_time):
+    digit_stim = visual.TextStim(
+        win = win,
+        text = sequence,
+        color = 'white',
+        height = 50
+    )
+    nFrames = time_to_frame(display_time)
+    for frame in range(nFrames):
+        digit_stim.draw()
+        win.flip()
+def collect_recall_response(expected_length):
+    response = ''
+    rt_clock = core.Clock()
+    win.callOnFlip(rt_clock.reset)
+    while True:
+        keys = event.getKeys()
+        for key in keys:
+            if key in '0123456789' and len(response) < expected_length:
+                response += key
+            elif key == 'backspace' and len(response) > 0:
+                response = response[:-1]
+            elif key == 'return' and len(response) == expected_length:
+                rt = rt_clock.getTime()
+                return response, rt
+        # Display the current response
+        response_stim = visual.TextStim(
+            win = win,
+            text = response,
+            color = 'white',
+            height = 50
+        )
+        response_stim.draw()
+        win.flip()
+def score_recall_response(correct_sequence, participant_response):
+    correct_digits = sum(1 for c, r in zip(correct_sequence, participant_response) if c == r)
+    span = 0
+    for c, r in zip(correct_sequence, participant_response):
+        if c == r:
+            span += 1
+        else:
+            break
+    return span, correct_digits / len(correct_sequence)
+
+def run_working_memory_session(data, n_trials):
+    session_start = now_time()
+    intro_text = visual.TextStim(
+        win = win,
+        text = "In the following session, you will see a sequence of digits. Try to remember in correct order. After a short delay, you will be asked to recall the digits by typing them in (order matters). Press Enter when you are done. \nPress any key to start.",
+        color = 'white',
+        height = 30,
+        wrapWidth = 1.5
+    )
+    intro_text.draw()
+    win.flip()
+    event.waitKeys()
+    for i in range(n_trials):
+        trial_no = i + 1
+        working_memory_trial(trial_no, session_start, data)
+        if trial_no < n_trials:
+            blank_screen_present(WM_INTER_TRIAL_TIME)
+    session_end = now_time()
+    session_duration = session_end - session_start
+    for trial in data:
+        trial['wm_session_end'] = session_end
+        trial['wm_session_duration'] = session_duration
 
 ########### Helper function #############
 
@@ -2124,82 +2223,133 @@ fresh_rate = win.getActualFrameRate()
 ### Create a keyboard object to check for key presses
 kb = keyboard.Keyboard()
 
-### Create color and residence stimuli
-initial_list= [0, 90, 180, 270]
-color_samples = generate_until_valid(['red','yellow','green','blue'],initial_list, n = 8,
-    kappa=80.0,
-    side_offset_deg=10.0,
-    mean_jitter_deg=2,
-    unit=0.1,
-    min_within_pairwise_dist_deg=4,
-    max_within_span_deg=70.0,
-    min_between_set_dist_deg=30.0,
-    min_center_dist_deg=60.0)
+if exp_info['session'] == '1':
+    ### Create color and residence stimuli
+    initial_list= [0, 90, 180, 270]
+    color_samples = generate_until_valid(['red','yellow','green','blue'],initial_list, n = 8,
+        kappa=80.0,
+        side_offset_deg=10.0,
+        mean_jitter_deg=2,
+        unit=0.1,
+        min_within_pairwise_dist_deg=4,
+        max_within_span_deg=70.0,
+        min_between_set_dist_deg=30.0,
+        min_center_dist_deg=60.0)
 
-residence_rotation = np.round(np.random.uniform(0,90),1)
-residence_initial = [(degree + residence_rotation) % 360 for degree in initial_list]
-residence_samples = generate_until_valid(['1st', '2nd', '3rd', '4th'], residence_initial, n = 8,
-    kappa=80.0,
-    side_offset_deg=10.0,
-    mean_jitter_deg=2,
-    unit=0.1,
-    min_within_pairwise_dist_deg=4,
-    max_within_span_deg=70.0,
-    min_between_set_dist_deg=30.0,
-    min_center_dist_deg=60.0)      
+    residence_rotation = np.round(np.random.uniform(0,90),1)
+    residence_initial = [(degree + residence_rotation) % 360 for degree in initial_list]
+    residence_samples = generate_until_valid(['1st', '2nd', '3rd', '4th'], residence_initial, n = 8,
+        kappa=80.0,
+        side_offset_deg=10.0,
+        mean_jitter_deg=2,
+        unit=0.1,
+        min_within_pairwise_dist_deg=4,
+        max_within_span_deg=70.0,
+        min_between_set_dist_deg=30.0,
+        min_center_dist_deg=60.0)      
 
-random.shuffle(ALIEN_PLANETS)
-if exp_info['condition'] == 'C':
-    paired_stimuli = pair_two_dicts(color_samples, residence_samples, field_names=['color_group', 'color_degree', 'residence_group', 'residence_degree'])
-elif exp_info['condition'] == 'R':
-    paired_stimuli = pair_two_dicts(residence_samples, color_samples, field_names= ['residence_group', 'residence_degree', 'color_group', 'color_degree'])
-if exp_info['condition'] == 'C' or exp_info['condition'] == 'R':
-    add_planet = add_group_values(paired_stimuli, 'planet', ALIEN_PLANETS)
-    color_residence_planet = regroup_by_key(add_planet, 'planet')
-else:
-    color_residence_planet = pair_by_preassigned_planets(color_samples, residence_samples, ALIEN_PLANETS, field_names=['color_group', 'color_degree', 'residence_group', 'residence_degree'])
+    random.shuffle(ALIEN_PLANETS)
+    if exp_info['condition'] == 'C':
+        paired_stimuli = pair_two_dicts(color_samples, residence_samples, field_names=['color_group', 'color_degree', 'residence_group', 'residence_degree'])
+    elif exp_info['condition'] == 'R':
+        paired_stimuli = pair_two_dicts(residence_samples, color_samples, field_names= ['residence_group', 'residence_degree', 'color_group', 'color_degree'])
+    if exp_info['condition'] == 'C' or exp_info['condition'] == 'R':
+        add_planet = add_group_values(paired_stimuli, 'planet', ALIEN_PLANETS)
+        color_residence_planet = regroup_by_key(add_planet, 'planet')
+    else:
+        color_residence_planet = pair_by_preassigned_planets(color_samples, residence_samples, ALIEN_PLANETS, field_names=['color_group', 'color_degree', 'residence_group', 'residence_degree'])
 
-name_added = add_name(color_residence_planet, ALIEN_M_NAMES, ALIEN_F_NAMES)
-alien_added = add_alien(name_added,['list_1', 'list_2', 'list_3', 'list_4'])
-order_group_added = add_order_group(alien_added)
-full_stimuli = add_others(order_group_added,exp_info)
-create_stimuli_csv(full_stimuli, exp_info["participant_id"])                            
-
-### Instructions
-instructions_text = visual.TextStim(
-    win = win,
-    text = "Welcome to the Alien Memory Experiment!\n\nIn this experiment, you will be shown a series of images of aliens. Your task is to remember the aliens and their features.\n\nPress any key to start the experiment.",
-    color = (1, 1, 1),
-    colorSpace = 'rgb',
-    height = 30,
-    wrapWidth = 800
-)
-instructions_text.draw()
-win.flip()
-event.waitKeys() ## wait for a key press to start the experiment
+    name_added = add_name(color_residence_planet, ALIEN_M_NAMES, ALIEN_F_NAMES)
+    alien_added = add_alien(name_added,['list_1', 'list_2', 'list_3', 'list_4'])
+    order_group_added = add_order_group(alien_added)
+    full_stimuli = add_others(order_group_added,exp_info)
+    create_stimuli_csv(full_stimuli, exp_info["participant_id"])                            
 
 
-### Create practice order
-practice_order = generatePracticeOrder('planet', 'color', 'residence')
-random.shuffle(practice_order)
+    ### Instructions
+    instructions_text = visual.TextStim(
+        win = win,
+        text = "Welcome to the Alien Memory Experiment!\n\nIn this experiment, you will be shown a series of images of aliens. Your task is to remember the aliens and their features.\n\nPress any key to start the experiment.",
+        color = (1, 1, 1),
+        colorSpace = 'rgb',
+        height = 30,
+        wrapWidth = 800
+    )
+    instructions_text.draw()
+    win.flip()
+    event.waitKeys() ## wait for a key press to start the experiment
 
-### Study blocks
-study_session_start = now_time()
-exp_info['study_session_start'] = study_session_start
-learning_data = []
-for i in range(N_BLOCKS):
-    block = i+1
-    study_block(learning_data, full_stimuli, block, practice_order)
-    if block != N_BLOCKS:
-        break_screen(BLOCK_BREAK_TIME)
+
+    ### Create practice order
+    practice_order = generatePracticeOrder('planet', 'color', 'residence')
+    random.shuffle(practice_order)
+
+    ### Study blocks
+    study_session_start = now_time()
+    exp_info['study_session_start'] = study_session_start
+    learning_data = []
+    for i in range(N_BLOCKS):
+        block = i+1
+        study_block(learning_data, full_stimuli, block, practice_order)
+        if block != N_BLOCKS:
+            break_screen(BLOCK_BREAK_TIME)
+            break_end_screen()
+        if block == N_BLOCKS:
+            study_session_end = now_time()
+            study_session_duration = study_session_end - study_session_start
+            for record in learning_data:
+                record['study_session_end'] = study_session_end
+                record['study_session_duration'] = study_session_duration
+            write_data_csv(f"learning_data_participant_{exp_info['participant_id']}.csv", learning_data)
+            break_screen(STUDY_SESSION_BREAK_TIME)
+            long_break_start = now_time()
+            if WM_MEMORY_STATUS:
+                wm_data = []
+                break_end_screen()
+                run_working_memory_session(wm_data, WM_N_TRIALS)
+                write_data_csv(f"working_memory_data_participant_{exp_info['participant_id']}.csv", wm_data)
+    current_time = now_time()
+    if exp_info['group'] == '1':
+        left_break_time = STUDY_TEST_INTERVAL - (current_time - study_session_end)
+        if left_break_time > 0:
+            break_screen(left_break_time)
         break_end_screen()
-    if block == N_BLOCKS:
-        study_session_end = now_time()
-        study_session_duration = study_session_end - study_session_start
-        for record in learning_data:
-            record['study_session_end'] = study_session_end
-            record['study_session_duration'] = study_session_duration
-        write_data_csv(f"learning_data_participant_{exp_info['participant_id']}.csv", learning_data)
-        break_screen(STUDY_SESSION_BREAK_TIME)
-        break_end_screen()
+        test_session_start = current_time
+        exp_info['test_session_start'] = test_session_start
+        test_data = []
+        run_session_2(test_data, full_stimuli)
+        test_session_end = now_time()
+        test_session_duration = test_session_end - test_session_start
+        for record in test_data:
+            record['test_session_end'] = test_session_end
+            record['test_session_duration'] = test_session_duration
+        write_data_csv(f"test_data_participant_{exp_info['participant_id']}.csv", test_data)
+    elif exp_info['group'] == '2':
+        session1_end_time = now_time()
+        session1_end_text = visual.TextStim(
+            win = win,
+            text = "End of Session 1.\n\nPlease contact the experimenter to schedule Session 2.\n\n Press any key to end the experiment.",
+            color = (1, 1, 1),
+            colorSpace = 'rgb',
+            height = 30,
+            wrapWidth = 800
+        )
+        session1_end_text.draw()
+        win.flip()
+        event.waitKeys()
+
+    elif exp_info['session'] == '2':
+        test_session_start = now_time()
+        exp_info['test_session_start'] = test_session_start
+        test_data = []
+        run_session_2(test_data, full_stimuli)
+        test_session_end = now_time()
+        test_session_duration = test_session_end - test_session_start
+        for record in test_data:
+            record['test_session_end'] = test_session_end
+            record['test_session_duration'] = test_session_duration
+        write_data_csv(f"test_data_participant_{exp_info['participant_id']}.csv", test_data)
+
+
+
 
