@@ -30,6 +30,7 @@ INTERVAL_TIME = 1.0 ## time to show blank screen between learning trials in seco
 FIXATION_TIME = np.random.uniform(0.75,1.25) ## time to show fixation cross before each trial in seconds (randomized between 0.75 and 1.25 second)  
 BLOCK_BREAK_TIME = 90.0 ## time to show break screen between learning blocks in seconds 
 FEEDBACK_TIME = 1.5 # Time to re-present the encoding screen after all 3 practice in seconds
+STUDY_SESSION_BREAK_TIME = 300.0 ## time to show break screen between study session and test session in seconds. Set to a longer duration to allow participants to take a break and prepare for the testing session.
 ###### Stimulus Parameters ######
 ALIEN_SIZE = 100 ## size of the alien images in pixels
 MASK_THRESHOLD = 180 
@@ -304,7 +305,7 @@ def detect_label_selection(mouse, labels_stim):
         click_label = True
     return click_label, selected_label
 
-def planet_test_screen(practiceNo, alien_info, practice = False):
+def planet_test_screen(practiceNo, alien_info, data, practice = False):
     alien = alien_info['alien']
     alien_name = alien_info['alien_name']
     alien_folder = alien_info['alien_folder']
@@ -348,9 +349,9 @@ def planet_test_screen(practiceNo, alien_info, practice = False):
                 rt = rt_clock.getTime()
                 trial_end_time = now_time()
                 if practice:
-                    saveData(['practiceNo','practice_planet_start_time','practice_planet_alien', 'practice_planet_correct', 'practice_planet_selected', 'practice_planet_rt', 'practice_end_time'],[practiceNo,trial_start_time, alien, alien_planet, selected_planet,rt, trial_end_time], trial_data)
+                    saveData(['practiceNo','practice_planet_start_time','practice_planet_alien', 'practice_planet_correct', 'practice_planet_selected', 'practice_planet_rt', 'practice_end_time'],[practiceNo,trial_start_time, alien, alien_planet, selected_planet,rt, trial_end_time], data)
                 else:
-                    saveData(['test_planet_start_time', 'test_planet_alien', 'test_planet_correct', 'test_planet_selected', 'test_planet_rt', 'test_end_time'], [trial_start_time, alien, planet, selected_planet,rt, trial_end_time], trial_data)
+                    saveData(['test_planet_start_time', 'test_planet_alien', 'test_planet_correct', 'test_planet_selected', 'test_planet_rt', 'test_end_time'], [trial_start_time, alien, alien_planet, selected_planet,rt, trial_end_time], data)
 
             break
     
@@ -413,7 +414,7 @@ def draw_color_ring(ring_sectors):
     for sector in ring_sectors:
         sector.draw()
 
-def color_test_screen(practiceNo, alien_info, practice = False):
+def color_test_screen(practiceNo, alien_info, data, practice = False):
     alien = alien_info['alien']
     alien_name = alien_info['alien_name']
     alien_folder = alien_info['alien_folder']
@@ -558,12 +559,12 @@ def color_test_screen(practiceNo, alien_info, practice = False):
     rt = rt_clock.getTime()
     trial_end_time = now_time()
     if practice:
-        saveData(['practice_color_No', 'practice_color_start_time', 'practice_color_alien', 'practice_color_correct', 'practice_color_selected', 'practice_color_rt', 'practice_color_end_time', 'practice_color_ring_initial_hue','practice_color_ring_rotation'], [practiceNo, trial_start_time, alien, alien_color, selected_hue, rt, trial_end_time, initial_hue, ring_rotation], trial_data)
+        saveData(['practice_color_No', 'practice_color_start_time', 'practice_color_alien', 'practice_color_correct', 'practice_color_selected', 'practice_color_rt', 'practice_color_end_time', 'practice_color_ring_initial_hue','practice_color_ring_rotation'], [practiceNo, trial_start_time, alien, alien_color, selected_hue, rt, trial_end_time, initial_hue, ring_rotation], data)
     else:
-        saveData(['test_color_start_time','test_color_alien', 'test_color_correct', 'test_color_selected', 'test_color_rt', 'test_color_end_time', 'test_color_ring_initial_hue','test_color_ring_rotation'], [trial_start_time, alien, alien_color, selected_hue, rt, trial_end_time, initial_hue, ring_rotation], trial_data)
+        saveData(['test_color_start_time','test_color_alien', 'test_color_correct', 'test_color_selected', 'test_color_rt', 'test_color_end_time', 'test_color_ring_initial_hue','test_color_ring_rotation'], [trial_start_time, alien, alien_color, selected_hue, rt, trial_end_time, initial_hue, ring_rotation], data)
    
 
-def residence_test_screen(practiceNo, alien_info, practice = False):
+def residence_test_screen(practiceNo, alien_info, data, practice = False):
     alien = alien_info['alien']
     alien_name = alien_info['alien_name']
     alien_folder = alien_info['alien_folder']
@@ -669,9 +670,9 @@ def residence_test_screen(practiceNo, alien_info, practice = False):
     rt = rt_clock.getTime()
     trial_end_time = now_time()
     if practice:
-        saveData(['practice_residence_no', 'practice_residence_start_time', 'practice_residence_alien', 'practice_residence_correct', 'practice_residence_selected', 'practice_residence_rt', 'practice_residence_end_time', 'practice_residence_ring_initial_angle'],[practiceNo, trial_start_time, alien, alien_residence, selected_residence, rt, trial_end_time, initial_bar_angle], trial_data)
+        saveData(['practice_residence_no', 'practice_residence_start_time', 'practice_residence_alien', 'practice_residence_correct', 'practice_residence_selected', 'practice_residence_rt', 'practice_residence_end_time', 'practice_residence_ring_initial_angle'],[practiceNo, trial_start_time, alien, alien_residence, selected_residence, rt, trial_end_time, initial_bar_angle], data)
     else:
-        saveData(['test_residence_start_time', 'test_residence_alien', 'test_residence_correct', 'test_residence_selected', 'test_residence_rt', 'test_residence_end_time', 'test_residence_ring_initial_angle'][trial_start_time, alien, residence, selected_residence, rt, trial_end_time, initial_bar_angle], trial_data)
+        saveData(['test_residence_start_time', 'test_residence_alien', 'test_residence_correct', 'test_residence_selected', 'test_residence_rt', 'test_residence_end_time', 'test_residence_ring_initial_angle'][trial_start_time, alien, alien_residence, selected_residence, rt, trial_end_time, initial_bar_angle], data)
     
 def generatePracticeOrder(planet, color, residence):
     list_1 = [planet, color, residence]
@@ -697,7 +698,7 @@ def generatePracticeOrder(planet, color, residence):
     random.shuffle(practice_order)
     return practice_order
 
-def practice_by_order(content, practiceNo, alien_info):
+def practice_by_order(content, practiceNo, alien_info, trial_data):
     if content == 'plant':
         planet_test_screen(practiceNo, alien_info, True)
     elif content == 'color':
@@ -705,36 +706,35 @@ def practice_by_order(content, practiceNo, alien_info):
     elif content == 'residence':
         residence_test_screen(practiceNo, alien_info, True)
       
-def practice_flow(alien_info):
+def practice_flow(alien_info, trial_data):
     practice_start = now_time()
     practiceOrder = alien_info['alien_practice_order']
     for i in range(len(practiceOrder)):
         practiceNo = i + 1
         practiceContent = practiceOrder[i]
-        practice_by_order(practiceContent, practiceNo, alien_info)
+        practice_by_order(practiceContent, practiceNo, alien_info, trial_data)
     practice_end = now_time()
     practice_duration = practice_end - practice_start
     return practice_start, practice_end, practice_duration
 
-def learning_trial(data, trial_no, block, alien_info):
+def learning_trial(data, trial_no, block, block_start, alien_info):
     trial_data = {
-    "participant_id": exp_info["participant_id"],
-    "group": exp_info["group"],
-    "condition": exp_info["condition"],
-    "session": exp_info["session"],
     "trial_no": trial_no,
     "block": block,
+    'block_start': block_start
     }
+    trial_data.update(exp_info)
     learning_trial_start = now_time()
     fix_start, fix_end, fix_duration = display_fixation_cross()
     encoding_start, encoding_end, encoding_duration = encoding_screen_present(alien_info)
-    saveData(['trial_no', 'block','learning_trial_start','fix_start','fix_end','fix_duration', 'encoding_start', 'encoding_end', 'encoding_duration'], [trial_no, block,learning_trial_start,fix_start, fix_end, fix_duration, encoding_start, encoding_end, encoding_duration], trial_data)
+    saveData(['learning_trial_start','fix_start','fix_end','fix_duration', 'encoding_start', 'encoding_end', 'encoding_duration'], [learning_trial_start,fix_start, fix_end, fix_duration, encoding_start, encoding_end, encoding_duration], trial_data)
     blank_screen_present(BLANK_TIME)
-    practice_start, practice_end, practice_duration = practice_flow(alien_info)
+    practice_start, practice_end, practice_duration = practice_flow(alien_info, trial_data)
     blank_screen_present(BLANK_TIME)
     feedback_start, feedback_end, feedback_duration = encoding_screen_present(alien_info)
     trial_end_time = now_time()
-    saveData(['practice_start', 'practice_end', 'practice_duration', 'feedback_start', 'feedback_end', 'feedback_duration','trial_end_time'], [practice_start, practice_end, practice_duration, feedback_start, feedback_end, feedback_duration, trial_end_time], trial_data)
+    trial_duration = trial_end_time - learning_trial_start
+    saveData(['practice_start', 'practice_end', 'practice_duration', 'feedback_start', 'feedback_end', 'feedback_duration','trial_end_time','trial_duration'], [practice_start, practice_end, practice_duration, feedback_start, feedback_end, feedback_duration, trial_end_time, trial_duration], trial_data)
     data.append(trial_data)
 
 def study_block(data, dic, block, practice_order):
@@ -742,7 +742,8 @@ def study_block(data, dic, block, practice_order):
     study_stimuli = generate_stimuli_for_block(dic, block, practice_order)
     ## generate study sequence
     study_sequence = make_shuffled_list(study_stimuli)
-    ## control trial loops
+    block_start = now_time()
+    ## control trial loops    
     for i in range(len(study_sequence)):
         trial_no = i + 1
         alien_info = {
@@ -753,7 +754,36 @@ def study_block(data, dic, block, practice_order):
             'alien_planet' : study_sequence[i]['planet'],
             'alien_residence' : study_sequence[i]['residence'],
             'alien_practice_order' : study_sequence[i]['practice_order']}
-        learning_trial(data, trial_no, block, alien_info)
+        learning_trial(data, trial_no, block, block_start, alien_info)
+    block_end = now_time()
+    block_duration = block_end - block_start
+    for trial in data:
+        trial['block_end'] = block_end
+        trial['block_duration'] = block_duration
+    
+def break_screen(duration):
+    break_text = visual.TextStim(
+        win = win,
+        text = "Take a short break!",
+        color = 'white',
+        height = 30
+    )
+    break_text.draw()
+    win.flip()
+    for frame in range(time_to_frame(duration)):
+        break_text.draw()
+        win.flip()
+
+def break_end_screen():
+    break_end_text = visual.TextStim(
+        win = win,
+        text = "Break is over. Press any key to continue.",
+        color = 'white',
+        height = 30
+    )
+    break_end_text.draw()
+    win.flip()
+    event.waitKeys()
 
     
     
@@ -2019,6 +2049,41 @@ def generate_stimuli_for_block(dic, block, practice_order):
                 value[i]['practice_order'] = practice_order[block-1][1]
     return dic
 
+def write_data_csv(file_name, data):
+    """
+    Save a list of dictionaries to a CSV file.
+
+    Parameters
+    ----------
+    file_name : str
+        Name of the CSV file to save.
+
+        Example:
+            "output.csv"
+
+    data : list of dict
+        A list where each item is a dictionary representing a row.
+
+        Example:
+            [
+                {"name": "A1", "degree": 1, "planet": "Mars"},
+                {"name": "B1", "degree": 2, "planet": "Mars"},
+                {"name": "A2", "degree": 3, "planet": "Venus"},
+                {"name": "B2", "degree": 4, "planet": "Venus"},
+            ]
+    """
+    if not data:
+        with open(file_name, "w", newline="", encoding="utf-8") as f:
+            pass
+        return
+
+    headers = list(data[0].keys())
+
+    with open(file_name, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=headers)
+        writer.writeheader()
+        writer.writerows(data)
+
 
 # ============ Main Script ===========
 
@@ -2119,8 +2184,22 @@ practice_order = generatePracticeOrder('planet', 'color', 'residence')
 random.shuffle(practice_order)
 
 ### Study blocks
+study_session_start = now_time()
+exp_info['study_session_start'] = study_session_start
 learning_data = []
 for i in range(N_BLOCKS):
     block = i+1
     study_block(learning_data, full_stimuli, block, practice_order)
+    if block != N_BLOCKS:
+        break_screen(BLOCK_BREAK_TIME)
+        break_end_screen()
+    if block == N_BLOCKS:
+        study_session_end = now_time()
+        study_session_duration = study_session_end - study_session_start
+        for record in learning_data:
+            record['study_session_end'] = study_session_end
+            record['study_session_duration'] = study_session_duration
+        write_data_csv(f"learning_data_participant_{exp_info['participant_id']}.csv", learning_data)
+        break_screen(STUDY_SESSION_BREAK_TIME)
+        break_end_screen()
 
