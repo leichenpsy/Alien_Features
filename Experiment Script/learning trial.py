@@ -11,7 +11,7 @@ import math
 import csv
 from PIL import Image
 from datetime import datetime
-from collections import defaultdict
+from collections import Counter, defaultdict
 import os
 
 
@@ -142,7 +142,9 @@ DIGIT_DISPLAY_TIME = 2.0
 WM_RETENTION_INTERVAL = 3.0
 WM_INTER_TRIAL_TIME = 1.0
 
-
+### main test settings
+TEST_BLOCK_BREAK_TIME = 60.0 ## time to show break screen between test blocks in seconds.
+TEST_INTER_TRIAL_TIME = 1.0 ## time to show blank screen between test trials in seconds.
 # ============ Define Key functions ===========
 
 def saveData(names, values, data):
@@ -791,8 +793,7 @@ def break_end_screen():
     break_end_text.draw()
     win.flip()
     event.waitKeys()
-
-    
+   
     
 def generate_until_valid(
     set_labels,
@@ -958,6 +959,300 @@ def run_working_memory_session(data, n_trials):
     for trial in data:
         trial['wm_session_end'] = session_end
         trial['wm_session_duration'] = session_duration
+
+
+
+######### Main test session functions. #################
+
+def read_stimuli_from_csv(participant_id):
+    stimuli_path = 'stimuli_participant_' + participant_id + '.csv'
+    stimuli_df = pd.read_csv(stimuli_path)
+    return stimuli_df
+
+
+def shuffle_test_stimuli_dataframe(
+    df,
+    test_contents=("planet", "color", "residence"),
+    max_attempts=500000,
+    random_state=None
+):
+    """
+    Convert a pandas DataFrame into a shuffled list of dictionaries.
+
+    For each original row:
+    - Make 3 total copies.
+    - Add key 'testContent'.
+    - Assign one of: 'planet', 'color', 'residence' to each copy.
+
+    Shuffle rows with these constraints:
+    1. Rows with the same 'planet' value cannot appear consecutively
+       more than 2 times.
+    2. Rows with the same 'testContent' value cannot appear consecutively
+       more than 2 times.
+    3. Rows with the same key-values except 'testContent' cannot be consecutive
+       and must be separated by at least 2 other rows.
+    4. For rows with the same 'alien' value, the order positions of
+       'color', 'residence', and 'planet' are approximately balanced.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input dataframe.
+    test_contents : tuple
+        Test content labels to assign to duplicated rows.
+    max_attempts : int
+        Maximum number of full shuffle attempts.
+    random_state : int or None
+        Random seed.
+
+    Returns
+    -------
+    list of dict
+        Shuffled rows as dictionaries.
+    """
+
+    rng = random.Random(random_state)
+
+    # -----------------------------
+    # Step 1: Convert dataframe to list of dictionaries
+    # -----------------------------
+    base_rows = df.to_dict(orient="records")
+
+    # -----------------------------
+    # Step 2: Expand each row into 3 copies with testContent
+    # -----------------------------
+    expanded_rows = []
+
+    for row_id, row in enumerate(base_rows):
+        contents = list(test_contents)
+        rng.shuffle(contents)
+
+        for content in contents:
+            new_row = dict(row)
+            new_row["testContent"] = content
+            new_row["_baseRowID"] = row_id
+            expanded_rows.append(new_row)
+
+    # -----------------------------
+    # Helper functions
+    # -----------------------------
+    def same_base_row(row1, row2):
+        """
+        True if two rows are identical except for testContent
+        and internal bookkeeping keys.
+        """
+        ignore_keys = {"testContent", "_baseRowID"}
+
+        keys1 = set(row1.keys()) - ignore_keys
+        keys2 = set(row2.keys()) - ignore_keys
+
+        if keys1 != keys2:
+            return False
+
+        return all(row1[k] == row2[k] for k in keys1)
+
+    def violates_recent_constraints(candidate, shuffled):
+        """
+        Check constraints 1, 2, and 3.
+        """
+
+        # Constraint 1:
+        # Same planet value cannot appear more than 2 times consecutively.
+        if len(shuffled) >= 2:
+            if (
+                shuffled[-1].get("planet") == candidate.get("planet")
+                and shuffled[-2].get("planet") == candidate.get("planet")
+            ):
+                return True
+
+        # Constraint 2:
+        # Same testContent cannot appear more than 2 times consecutively.
+        if len(shuffled) >= 2:
+            if (
+                shuffled[-1].get("testContent") == candidate.get("testContent")
+                and shuffled[-2].get("testContent") == candidate.get("testContent")
+            ):
+                return True
+
+        # Constraint 3:
+        # Same original row must be separated by at least 2 other rows.
+        # Therefore it cannot appear within the previous 2 positions.
+        for previous_row in shuffled[-2:]:
+            if same_base_row(candidate, previous_row):
+                return True
+
+        return False
+
+    def alien_order_penalty(candidate, shuffled, alien_position_counts):
+        """
+        Lower penalty means better balance.
+
+        For each alien, we track how often each testContent has appeared
+        as the 1st, 2nd, or 3rd occurrence among rows with that alien.
+        """
+
+        alien = candidate.get("alien")
+        content = candidate.get("testContent")
+
+        if alien is None:
+            return 0
+
+        previous_alien_count = sum(
+            1 for row in shuffled if row.get("alien") == alien
+        )
+
+        position = previous_alien_count % len(test_contents)
+
+        return alien_position_counts[content][position]
+
+    def update_alien_position_counts(row, shuffled, alien_position_counts):
+        alien = row.get("alien")
+        content = row.get("testContent")
+
+        if alien is None:
+            return
+
+        previous_alien_count = sum(
+            1 for existing in shuffled if existing.get("alien") == alien
+        )
+
+        position = previous_alien_count % len(test_contents)
+
+        alien_position_counts[content][position] += 1
+
+    # -----------------------------
+    # Step 3: Try constrained random shuffle
+    # -----------------------------
+    best_shuffle = None
+    best_score = float("inf")
+
+    for attempt in range(max_attempts):
+
+        remaining = expanded_rows[:]
+        rng.shuffle(remaining)
+
+        shuffled = []
+        alien_position_counts = {
+            content: Counter() for content in test_contents
+        }
+
+        success = True
+
+        while remaining:
+            valid_candidates = [
+                row for row in remaining
+                if not violates_recent_constraints(row, shuffled)
+            ]
+
+            if not valid_candidates:
+                success = False
+                break
+
+            # Prefer candidates that improve alien-order balance
+            min_penalty = min(
+                alien_order_penalty(row, shuffled, alien_position_counts)
+                for row in valid_candidates
+            )
+
+            best_candidates = [
+                row for row in valid_candidates
+                if alien_order_penalty(row, shuffled, alien_position_counts)
+                == min_penalty
+            ]
+
+            candidate = rng.choice(best_candidates)
+
+            update_alien_position_counts(
+                candidate,
+                shuffled,
+                alien_position_counts
+            )
+
+            shuffled.append(candidate)
+            remaining.remove(candidate)
+
+        if success:
+            return [
+                {
+                    k: v
+                    for k, v in row.items()
+                    if not k.startswith("_")
+                }
+                for row in shuffled
+            ]
+
+        # Keep best partial result as fallback
+        if len(shuffled) > 0:
+            score = len(expanded_rows) - len(shuffled)
+            if score < best_score:
+                best_score = score
+                best_shuffle = shuffled
+
+    raise RuntimeError(
+        "Could not generate a valid shuffle. "
+        "Try increasing max_attempts or relaxing constraints."
+    )
+
+def memory_test_session(data, test_sequence):
+    test_session_start = now_time()
+    test_intro = visual.TextStim(
+        win = win,
+        text = "Now you will be tested on what you learned about the aliens. For each trial, you will be asked a question about one of the aliens. Try to answer as accurately as possible. There will be 4 blocks of test. You will take one minute break after each block. \n\nPress any key to start.",
+        color = 'white',
+        height = 30,
+        wrapWidth = 1.5
+    )
+    test_intro.draw()
+    win.flip()
+    event.waitKeys()
+    block_start = now_time()
+    block_no = 1
+    for i in range(len(test_sequence)):
+        if i == 8 or i == 16 or i == 24:
+            block_end = now_time()
+            block_duration = block_end - block_start
+            for trial in data:
+                trial['test_block_end'] = block_end
+                trial['test_block_duration'] = block_duration
+            break_screen(TEST_BLOCK_BREAK_TIME)
+            break_end_screen()
+            block_start = now_time()
+            block_no += 1
+        trial_info_dic = test_sequence[i]
+        trial_no = i + 1
+        run_memory_test_trial(data, block_no, block_start, trial_no, trial_info_dic)
+        if i < len(test_sequence) - 1 and i not in [7, 15, 23]:
+            blank_screen_present(TEST_INTER_TRIAL_TIME)
+    test_session_end = now_time()
+    test_session_duration = test_session_end - test_session_start
+    for trial in data:
+        trial['test_session_start'] = test_session_start
+        trial['test_session_end'] = test_session_end
+        trial['test_session_duration'] = test_session_duration
+
+def run_memory_test_trial(data, block_no, block_start, trial_no, trial_info):
+    trial_data = {
+        "test_block_no": block_no,
+        "test_block_start": block_start,
+        "test_trial_no": trial_no
+    }
+    trial_data.update(exp_info)
+    test_content = trial_info['testContent']
+    if test_content == 'planet':
+        planet_test_screen(trial_no, trial_info, trial_data)
+    elif test_content == 'color':
+        color_test_screen(trial_no, trial_info, trial_data)
+    elif test_content == 'residence':
+        residence_test_screen(trial_no, trial_info, trial_data)
+    data.append(trial_data)      
+
+
+def run_session_2(data):
+    stimuli_df = read_stimuli_from_csv(exp_info['participant_id'])
+    shuffled_stimuli = shuffle_test_stimuli_dataframe(stimuli_df)
+    memory_test_session(data, shuffled_stimuli)
+
+
 
 ########### Helper function #############
 
@@ -2317,7 +2612,7 @@ if exp_info['session'] == '1':
         test_session_start = current_time
         exp_info['test_session_start'] = test_session_start
         test_data = []
-        run_session_2(test_data, full_stimuli)
+        run_session_2(test_data)
         test_session_end = now_time()
         test_session_duration = test_session_end - test_session_start
         for record in test_data:
