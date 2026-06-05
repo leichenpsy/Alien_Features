@@ -344,7 +344,7 @@ def planet_test_screen(practiceNo, alien_info, data, practice = False):
     rt_clock = core.Clock()
     win.callOnFlip(rt_clock.reset)
     win.flip()
-    trial_start_time = now_time()
+    stimuli_start_time = now_time()
     mouse = event.Mouse(visible=True)
     while True:
         test_alien.draw()
@@ -360,11 +360,11 @@ def planet_test_screen(practiceNo, alien_info, data, practice = False):
                 rt = rt_clock.getTime()
                 trial_end_time = now_time()
                 if practice:
-                    saveData(['practiceNo','practice_planet_start_time','practice_planet_alien', 'practice_planet_correct', 'practice_planet_selected', 'practice_planet_rt', 'practice_end_time'],[practiceNo,trial_start_time, alien, alien_planet, selected_planet,rt, trial_end_time], data)
+                    saveData(['practiceNo','practice_planet_stimuli_start','practice_planet_alien', 'practice_planet_correct', 'practice_planet_selected', 'practice_planet_rt', 'practice_end_time'],[practiceNo,stimuli_start_time, alien, alien_planet, selected_planet,rt, trial_end_time], data)
                 else:
-                    saveData(['test_planet_start_time', 'test_planet_alien', 'test_planet_correct', 'test_planet_selected', 'test_planet_rt', 'test_end_time'], [trial_start_time, alien, alien_planet, selected_planet,rt, trial_end_time], data)
+                    saveData(['test_planet_stimuli_start', 'test_planet_alien', 'test_planet_correct', 'test_planet_selected', 'test_planet_rt', 'test_end_time'], [stimuli_start_time, alien, alien_planet, selected_planet,rt, trial_end_time], data)
 
-            break
+                break
     
 def create_color_ring(
     win,
@@ -519,7 +519,7 @@ def color_test_screen(practiceNo, alien_info, data, practice = False):
     rt_clock = core.Clock()
     win.callOnFlip(rt_clock.reset)
     win.flip()
-    trial_start_time = now_time()
+    stimuli_start_time = now_time()
     submitted = False
     current_hue_idx = initial_hue/COLOR_RING_UNIT
     dragging = False
@@ -570,9 +570,9 @@ def color_test_screen(practiceNo, alien_info, data, practice = False):
     rt = rt_clock.getTime()
     trial_end_time = now_time()
     if practice:
-        saveData(['practice_color_No', 'practice_color_start_time', 'practice_color_alien', 'practice_color_correct', 'practice_color_selected', 'practice_color_rt', 'practice_color_end_time', 'practice_color_ring_initial_hue','practice_color_ring_rotation'], [practiceNo, trial_start_time, alien, alien_color, selected_hue, rt, trial_end_time, initial_hue, ring_rotation], data)
+        saveData(['practice_color_No', 'practice_color_stimuli_start_time', 'practice_color_alien', 'practice_color_correct', 'practice_color_selected', 'practice_color_rt', 'practice_color_end_time', 'practice_color_ring_initial_hue','practice_color_ring_rotation'], [practiceNo, stimuli_start_time, alien, alien_color, selected_hue, rt, trial_end_time, initial_hue, ring_rotation], data)
     else:
-        saveData(['test_color_start_time','test_color_alien', 'test_color_correct', 'test_color_selected', 'test_color_rt', 'test_color_end_time', 'test_color_ring_initial_hue','test_color_ring_rotation'], [trial_start_time, alien, alien_color, selected_hue, rt, trial_end_time, initial_hue, ring_rotation], data)
+        saveData(['test_color_stimuli_start_time','test_color_alien', 'test_color_correct', 'test_color_selected', 'test_color_rt', 'test_color_end_time', 'test_color_ring_initial_hue','test_color_ring_rotation'], [stimuli_start_time, alien, alien_color, selected_hue, rt, trial_end_time, initial_hue, ring_rotation], data)
    
 
 def residence_test_screen(practiceNo, alien_info, data, practice = False):
@@ -631,7 +631,7 @@ def residence_test_screen(practiceNo, alien_info, data, practice = False):
     rt_clock = core.Clock()
     win.callOnFlip(rt_clock.reset)
     win.flip()
-    trial_start_time = now_time()
+    stimuli_start_time = now_time()
     submitted = False
     current_angle = initial_bar_angle
     dragging = False
@@ -679,10 +679,11 @@ def residence_test_screen(practiceNo, alien_info, data, practice = False):
     rt = rt_clock.getTime()
     trial_end_time = now_time()
     if practice:
-        saveData(['practice_residence_no', 'practice_residence_start_time', 'practice_residence_alien', 'practice_residence_correct', 'practice_residence_selected', 'practice_residence_rt', 'practice_residence_end_time', 'practice_residence_ring_initial_angle'],[practiceNo, trial_start_time, alien, alien_residence, selected_residence, rt, trial_end_time, initial_bar_angle], data)
+        saveData(['practice_residence_no', 'practice_residence_stimuli_start_time', 'practice_residence_alien', 'practice_residence_correct', 'practice_residence_selected', 'practice_residence_rt', 'practice_residence_end_time', 'practice_residence_ring_initial_angle'],[practiceNo, stimuli_start_time, alien, alien_residence, selected_residence, rt, trial_end_time, initial_bar_angle], data)
     else:
-        saveData(['test_residence_start_time', 'test_residence_alien', 'test_residence_correct', 'test_residence_selected', 'test_residence_rt', 'test_residence_end_time', 'test_residence_ring_initial_angle'][trial_start_time, alien, alien_residence, selected_residence, rt, trial_end_time, initial_bar_angle], data)
+        saveData(['test_residence_stimuli_start_time', 'test_residence_alien', 'test_residence_correct', 'test_residence_selected', 'test_residence_rt', 'test_residence_end_time', 'test_residence_ring_initial_angle'][stimuli_start_time, alien, alien_residence, selected_residence, rt, trial_end_time, initial_bar_angle], data)
     
+
 def generatePracticeOrder(planet, color, residence):
     list_1 = [planet, color, residence]
     random.shuffle(list_1)
@@ -1193,7 +1194,11 @@ def shuffle_test_stimuli_dataframe(
         "Try increasing max_attempts or relaxing constraints."
     )
 
-def memory_test_session(data, test_sequence):
+def memory_test_session():
+    memory_test_data = []
+    test_session_start = now_time()
+    stimuli_df = read_stimuli_from_csv(exp_info['participant_id'])
+    test_sequence = shuffle_test_stimuli_dataframe(stimuli_df)
     test_session_start = now_time()
     test_intro = visual.TextStim(
         win = win,
@@ -1211,7 +1216,7 @@ def memory_test_session(data, test_sequence):
         if i == 8 or i == 16 or i == 24:
             block_end = now_time()
             block_duration = block_end - block_start
-            for trial in data:
+            for trial in memory_test_data:
                 trial['test_block_end'] = block_end
                 trial['test_block_duration'] = block_duration
             break_screen(TEST_BLOCK_BREAK_TIME)
@@ -1220,21 +1225,30 @@ def memory_test_session(data, test_sequence):
             block_no += 1
         trial_info_dic = test_sequence[i]
         trial_no = i + 1
-        run_memory_test_trial(data, block_no, block_start, trial_no, trial_info_dic)
+        run_memory_test_trial(memory_test_data, block_no, block_start, trial_no, trial_info_dic)
         if i < len(test_sequence) - 1 and i not in [7, 15, 23]:
             blank_screen_present(TEST_INTER_TRIAL_TIME)
     test_session_end = now_time()
     test_session_duration = test_session_end - test_session_start
-    for trial in data:
+    for trial in memory_test_data:
         trial['test_session_start'] = test_session_start
         trial['test_session_end'] = test_session_end
         trial['test_session_duration'] = test_session_duration
+    write_data_csv(f"test_data_participant_{exp_info['participant_id']}.csv", memory_test_data)
+
+
 
 def run_memory_test_trial(data, block_no, block_start, trial_no, trial_info):
+    trial_start_time = now_time()
+    fix_start, fix_end, fix_duration = display_fixation_cross()
     trial_data = {
         "test_block_no": block_no,
         "test_block_start": block_start,
-        "test_trial_no": trial_no
+        "test_trial_no": trial_no,
+        'test_fixation_start': fix_start,
+        'test_fixation_end': fix_end,
+        'test_fixation_duration': fix_duration,
+        'trial_start_time': trial_start_time
     }
     trial_data.update(exp_info)
     test_content = trial_info['testContent']
@@ -1247,10 +1261,1188 @@ def run_memory_test_trial(data, block_no, block_start, trial_no, trial_info):
     data.append(trial_data)      
 
 
-def run_session_2(data):
-    stimuli_df = read_stimuli_from_csv(exp_info['participant_id'])
-    shuffled_stimuli = shuffle_test_stimuli_dataframe(stimuli_df)
-    memory_test_session(data, shuffled_stimuli)
+def generate_generalization_materials(rows, seed=None):
+    """
+    Generate generalization dictionaries from a list of dictionaries.
+
+    Assumptions
+    -----------
+    - rows is a list of dictionaries.
+    - All dictionaries share the same 'condition' value: 'C', 'R', or 'N'.
+    - Each dictionary contains at least:
+        'condition', 'planet', 'alien_folder', 'color', 'residence'
+    - 'color' and 'residence' are circular angle values in degrees.
+    - Angles such as 0.1 and 359.9 are treated as close.
+
+    Returns
+    -------
+    list of dict
+        A list of generated dictionaries.
+        For each planet group, four dictionaries are generated.
+    """
+    rng = random.Random(seed)
+
+    # -----------------------------
+    # Circular helper functions
+    # -----------------------------
+
+    def wrap_angle(x):
+        """Wrap angle to [0, 360)."""
+        return x % 360
+
+    def circular_distance(a, b):
+        """Smallest circular distance between two angles."""
+        diff = abs((a - b) % 360)
+        return min(diff, 360 - diff)
+
+    def circular_signed_delta(a, b, direction):
+        """
+        Distance from a to b in a chosen direction.
+        direction='clockwise' or direction='counterclockwise'
+        """
+        if direction == "clockwise":
+            return (b - a) % 360
+        else:
+            return (a - b) % 360
+
+    def circular_mean(values):
+        """Mean of circular angle values."""
+        radians = [math.radians(float(v)) for v in values]
+        sin_sum = sum(math.sin(r) for r in radians)
+        cos_sum = sum(math.cos(r) for r in radians)
+
+        if sin_sum == 0 and cos_sum == 0:
+            return 0
+
+        mean_angle = math.degrees(math.atan2(sin_sum, cos_sum))
+        return wrap_angle(mean_angle)
+
+    def circular_quantiles(values, quantiles=(1 / 3, 2 / 3)):
+        """
+        Approximate circular quantiles.
+
+        Values are unwrapped around the largest circular gap,
+        then ordinary linear quantiles are computed.
+        """
+        values = sorted(wrap_angle(float(v)) for v in values)
+
+        if len(values) == 1:
+            return [values[0] for _ in quantiles]
+
+        gaps = []
+        for i in range(len(values)):
+            current = values[i]
+            nxt = values[(i + 1) % len(values)]
+            gap = (nxt - current) % 360
+            gaps.append(gap)
+
+        cut_index = gaps.index(max(gaps))
+        start_index = (cut_index + 1) % len(values)
+
+        ordered = values[start_index:] + values[:start_index]
+
+        unwrapped = [ordered[0]]
+        for v in ordered[1:]:
+            while v < unwrapped[-1]:
+                v += 360
+            unwrapped.append(v)
+
+        result = []
+        n = len(unwrapped)
+
+        for q in quantiles:
+            pos = q * (n - 1)
+            low = int(math.floor(pos))
+            high = int(math.ceil(pos))
+
+            if low == high:
+                value = unwrapped[low]
+            else:
+                weight = pos - low
+                value = unwrapped[low] * (1 - weight) + unwrapped[high] * weight
+
+            result.append(wrap_angle(value))
+
+        return result
+
+    def closest_row(rows_, key, value):
+        """Find row whose key value is circularly closest to value."""
+        return min(
+            rows_,
+            key=lambda r: circular_distance(float(r[key]), value)
+        )
+
+    def furthest_value(rows_, key, value):
+        """Find value in rows whose key value is circularly furthest from value."""
+        return float(
+            max(
+                rows_,
+                key=lambda r: circular_distance(float(r[key]), value)
+            )[key]
+        )
+
+    def circular_jitter(value, amount):
+        return wrap_angle(value + amount)
+
+    def make_jitter():
+        return rng.uniform(-3, 3)
+
+    # -----------------------------
+    # Group rows by planet
+    # -----------------------------
+
+    planet_groups = defaultdict(list)
+
+    for row in rows:
+        planet_groups[row["planet"]].append(row)
+
+    planets = list(planet_groups.keys())
+
+    if not rows:
+        return []
+
+    overall_condition = rows[0]["condition"]
+
+    # -----------------------------
+    # Determine generation rule
+    # -----------------------------
+
+    if overall_condition in ["C", "R"]:
+        planet_rules = {
+            planet: overall_condition
+            for planet in planets
+        }
+
+    elif overall_condition == "N":
+        shuffled_planets = planets[:]
+        rng.shuffle(shuffled_planets)
+
+        half = len(shuffled_planets) // 2
+
+        planet_rules = {}
+
+        for planet in shuffled_planets[:half]:
+            planet_rules[planet] = "C"
+
+        for planet in shuffled_planets[half:]:
+            planet_rules[planet] = "R"
+
+    else:
+        raise ValueError("condition must be 'C', 'R', or 'N'")
+
+    # -----------------------------
+    # Helper: neighbor group by direction
+    # -----------------------------
+
+    def group_center_color(group_rows):
+        return circular_mean([float(r["color"]) for r in group_rows])
+
+    planet_centers = {
+        planet: group_center_color(group_rows)
+        for planet, group_rows in planet_groups.items()
+    }
+
+    def neighbor_planet(current_planet, direction):
+        """
+        Find neighboring planet in color space in the chosen direction.
+        """
+        current_center = planet_centers[current_planet]
+
+        candidates = [
+            p for p in planets
+            if p != current_planet
+        ]
+
+        if not candidates:
+            return None
+
+        return min(
+            candidates,
+            key=lambda p: circular_signed_delta(
+                current_center,
+                planet_centers[p],
+                direction
+            )
+        )
+
+    def closest_boundary_values(current_rows, neighbor_rows, direction):
+        """
+        Find the two closest color values between current group
+        and neighbor group in the specified circular direction.
+        """
+        best_current = None
+        best_neighbor = None
+        best_distance = float("inf")
+
+        for current_row in current_rows:
+            c = float(current_row["color"])
+
+            for neighbor_row in neighbor_rows:
+                n = float(neighbor_row["color"])
+
+                d = circular_signed_delta(c, n, direction)
+
+                if 0 < d < best_distance:
+                    best_distance = d
+                    best_current = c
+                    best_neighbor = n
+
+        if best_current is None:
+            for current_row in current_rows:
+                c = float(current_row["color"])
+
+                for neighbor_row in neighbor_rows:
+                    n = float(neighbor_row["color"])
+
+                    d = circular_distance(c, n)
+
+                    if d < best_distance:
+                        best_distance = d
+                        best_current = c
+                        best_neighbor = n
+
+        return best_current, best_neighbor, best_distance
+
+    # -----------------------------
+    # Generate one planet group
+    # -----------------------------
+
+    def generate_for_planet(planet, group_rows, direction, gen_rule):
+        generated = []
+
+        color_values = [float(r["color"]) for r in group_rows]
+        residence_values = [float(r["residence"]) for r in group_rows]
+
+        alien_folder = group_rows[0]["alien_folder"]
+
+        base_info = {
+            "direction": direction,
+            "planet": planet,
+            "alien_folder": alien_folder,
+            "gen_rule": gen_rule
+        }
+
+        # -------------------------
+        # center-center
+        # -------------------------
+
+        center_trial = dict(base_info)
+        center_trial.update({
+            "gen_condition": "center-center",
+            "new_color": circular_mean(color_values),
+            "new_residence": circular_mean(residence_values),
+            "percentile": 1 / 2,
+            "jitter": 0
+        })
+
+        generated.append(center_trial)
+
+        # -------------------------
+        # inCluster-close / inCluster-far
+        # -------------------------
+
+        if gen_rule == "C":
+            q1, q2 = circular_quantiles(
+                color_values,
+                quantiles=(1 / 3, 2 / 3)
+            )
+        else:
+            q1, q2 = circular_quantiles(
+                residence_values,
+                quantiles=(1 / 3, 2 / 3)
+            )
+
+        percentiles = [1 / 3, 2 / 3]
+        quantile_values = [q1, q2]
+
+        paired = list(zip(percentiles, quantile_values))
+        rng.shuffle(paired)
+
+        for gen_condition, pair in zip(
+            ["inCluster-close", "inCluster-far"],
+            paired
+        ):
+            percentile, quantile_value = pair
+            jitter = make_jitter()
+
+            trial = dict(base_info)
+            trial["gen_condition"] = gen_condition
+            trial["percentile"] = percentile
+            trial["jitter"] = jitter
+
+            if gen_rule == "C":
+                new_color = quantile_value
+
+                nearest = closest_row(group_rows, "color", new_color)
+                extracted_residence = float(nearest["residence"])
+
+                if gen_condition == "inCluster-close":
+                    new_residence = circular_jitter(
+                        extracted_residence,
+                        jitter
+                    )
+                else:
+                    far_residence = furthest_value(
+                        group_rows,
+                        "residence",
+                        extracted_residence
+                    )
+                    new_residence = circular_jitter(
+                        far_residence,
+                        jitter
+                    )
+
+                trial["new_color"] = wrap_angle(new_color)
+                trial["new_residence"] = wrap_angle(new_residence)
+
+            elif gen_rule == "R":
+                new_residence = quantile_value
+
+                nearest = closest_row(group_rows, "residence", new_residence)
+                extracted_color = float(nearest["color"])
+
+                if gen_condition == "inCluster-close":
+                    new_color = circular_jitter(
+                        extracted_color,
+                        jitter
+                    )
+                else:
+                    far_color = furthest_value(
+                        group_rows,
+                        "color",
+                        extracted_color
+                    )
+                    new_color = circular_jitter(
+                        far_color,
+                        jitter
+                    )
+
+                trial["new_color"] = wrap_angle(new_color)
+                trial["new_residence"] = wrap_angle(new_residence)
+
+            generated.append(trial)
+
+        # -------------------------
+        # outCluster-center
+        # -------------------------
+
+        out_trial = dict(base_info)
+        out_trial["gen_condition"] = "outCluster-center"
+        out_trial["percentile"] = 4 / 3
+
+        jitter = make_jitter()
+        out_trial["jitter"] = jitter
+
+        neighbor = neighbor_planet(planet, direction)
+
+        if neighbor is None:
+            interval_one_third = 0
+            boundary_color = circular_mean(color_values)
+        else:
+            neighbor_rows = planet_groups[neighbor]
+
+            boundary_color, _, interval = closest_boundary_values(
+                group_rows,
+                neighbor_rows,
+                direction
+            )
+
+            interval_one_third = interval / 3
+
+        if gen_rule == "C":
+            if direction == "clockwise":
+                new_color = boundary_color + interval_one_third + jitter
+            else:
+                new_color = boundary_color - interval_one_third + jitter
+
+            new_residence = circular_mean(residence_values)
+
+            out_trial["new_color"] = wrap_angle(new_color)
+            out_trial["new_residence"] = wrap_angle(new_residence)
+
+        elif gen_rule == "R":
+            residence_centers = {
+                p: circular_mean([float(r["residence"]) for r in rs])
+                for p, rs in planet_groups.items()
+            }
+
+            current_center = residence_centers[planet]
+
+            candidate_planets = [
+                p for p in planets
+                if p != planet
+            ]
+
+            if not candidate_planets:
+                boundary_residence = circular_mean(residence_values)
+                interval_one_third_r = 0
+            else:
+                neighbor_r = min(
+                    candidate_planets,
+                    key=lambda p: circular_signed_delta(
+                        current_center,
+                        residence_centers[p],
+                        direction
+                    )
+                )
+
+                best_current = None
+                best_distance = float("inf")
+
+                for current_row in group_rows:
+                    c = float(current_row["residence"])
+
+                    for neighbor_row in planet_groups[neighbor_r]:
+                        n = float(neighbor_row["residence"])
+
+                        d = circular_signed_delta(c, n, direction)
+
+                        if 0 < d < best_distance:
+                            best_distance = d
+                            best_current = c
+
+                if best_current is None:
+                    boundary_residence = circular_mean(residence_values)
+                    interval_one_third_r = 0
+                else:
+                    boundary_residence = best_current
+                    interval_one_third_r = best_distance / 3
+
+            if direction == "clockwise":
+                new_residence = boundary_residence + interval_one_third_r + jitter
+            else:
+                new_residence = boundary_residence - interval_one_third_r + jitter
+
+            new_color = circular_mean(color_values)
+
+            out_trial["new_color"] = wrap_angle(new_color)
+            out_trial["new_residence"] = wrap_angle(new_residence)
+
+        generated.append(out_trial)
+
+        return generated
+
+    # -----------------------------
+    # Generate trials for all planets
+    # -----------------------------
+
+    generated_by_planet = {}
+
+    direction = rng.choice(["clockwise", "counterclockwise"])
+
+    for planet in planets:
+        group_rows = planet_groups[planet]
+        gen_rule = planet_rules[planet]
+
+        generated_by_planet[planet] = generate_for_planet(
+            planet=planet,
+            group_rows=group_rows,
+            direction=direction,
+            gen_rule=gen_rule
+        )
+
+    return generated_by_planet
+
+def generate_generalization_sequence(materials, seed=None):
+    stimuli = add_alien(materials, ['list_1', 'list_2', 'list_3', 'list_4'], ALIEN_PATH_GEN)
+    sequence = make_shuffled_list(stimuli)
+    return sequence
+
+def generalization_test_session(stimuli):
+    generalization_session_data = []
+    gen_stimuli = generate_generalization_materials(stimuli)
+    gen_sequence = generate_generalization_sequence(gen_stimuli)
+    gen_session_start = now_time()
+    gen_intro = visual.TextStim(
+        win = win,
+        text = "Now you will be tested on a new alien that you haven't seen before. Based on what you learned about the previous aliens, try to guess where this new alien lives. \n\nPress any key to start.",
+        color = 'white',
+        height = 30,
+        wrapWidth = 1.5
+    )
+    gen_intro.draw()
+    win.flip()
+    event.waitKeys()
+ 
+    for i in range(len(gen_sequence)):
+        trial_info_dic = gen_sequence[i]
+        trial_no = i + 1
+        trial_data = run_generalization_trial(trial_no, gen_session_start, trial_info_dic)
+        generalization_session_data.append(trial_data)
+        if i < len(gen_sequence) - 1:
+            blank_screen_present(TEST_INTER_TRIAL_TIME)
+    gen_session_end = now_time()
+    for trial_data in generalization_session_data:
+        trial_data['gen_session_end'] = gen_session_end
+        trial_data['gen_session_duration'] = gen_session_end - gen_session_start
+    write_data_csv('generalization_participant_' + exp_info['participant_id'] + '.csv', generalization_session_data)
+
+
+def run_generalization_trial(trial_no, gen_session_start, alien_info):
+    trial_start_time = now_time()   
+    fix_start, fix_end, fix_duration = display_fixation_cross()
+    trial_data = {
+        'gen_session_start': gen_session_start,
+        'gen_trial_no': trial_no,
+        'gen_trial_start_time': trial_start_time,
+        'gen_fixation_start': fix_start,
+        'gen_fixation_end': fix_end,
+        'gen_fixation_duration': fix_duration
+    }
+    trial_data.update(exp_info)
+    display_generalization_screen(alien_info, trial_data)
+    return trial_data
+
+def display_generalization_screen(alien_info, trial_data):
+    alien_folder = alien_info['alien_folder']
+    alien = alien_info['alien']
+    alien_color = alien_info['new_color']
+    alien_residence = alien_info['new_residence']
+    alien_planet = alien_info['planet']
+    direction = alien_info['direction']
+    percentile = alien_info['percentile']
+    jitter = alien_info['jitter']    
+    gen_condition = alien_info['gen_condition']
+    gen_rule = alien_info['gen_rule']
+    alien_pos = TEST_ALIEN_POS
+    fill_alien_image = ALIEN_PATH_GEN + alien_folder + '/fill_layer' + alien
+    fill_stim = alien_fill_image(fill_alien_image, alien_pos)
+    update_alien_fill_color(fill_stim, alien_color)
+    fill_stim.draw()
+    outline_alien_image = ALIEN_PATH_GEN + alien_folder + 'outline_layer' + alien
+    outline_stim = alien_outline_image(outline_alien_image, alien_pos)
+    outline_stim.draw()
+    residence_ring_stim = residence_ring(alien_pos)
+    residence_ring_stim.draw()
+    residence_bar_stim = residence_ring_bar()
+    update_residence_bar(alien_pos, residence_bar_stim, alien_residence)
+    residence_bar_stim.draw()
+    test_question_stim = visual.TextStim(
+        text = 'Where does this alien most likely to live?',
+        pos = TEST_QUESTION_POS,
+        color = TEST_QUESTION_COLOR,
+        height = TEST_QUESTION_HEIGHT
+    )
+    test_question_stim.draw()
+    labels_stim = test_labels()
+    draw_test_labels(labels_stim)
+    rt_clock = core.Clock()
+    win.callOnFlip(rt_clock.reset)
+    win.flip()
+    stimuli_start_time = now_time()
+    mouse = event.Mouse(visible=True)
+    while True:
+        fill_stim.draw()
+        outline_stim.draw()
+        test_question_stim.draw()
+        residence_ring_stim.draw()
+        residence_bar_stim.draw()
+        draw_test_labels(labels_stim)
+        win.flip()
+        mouse.clickRest()
+        if mouse.getPress()[0]:
+            click_label, selected_label = detect_label_selection(mouse, labels_stim)
+            if click_label:
+                selected_planet = selected_label.text
+                rt = rt_clock.getTime()
+                trial_end_time = now_time()
+                saveData(['gen_stimuli_start_time', 'trial_end_time', 'selected_planet', 'rt', 'correct_planet', 'new_color', 'new_residence', 'direction', 'percentile', 'jitter', 'gen_condition', 'gen_rule'], [stimuli_start_time, trial_end_time, selected_planet, rt, alien_planet, alien_color, alien_residence, direction, percentile, jitter, gen_condition, gen_rule], trial_data)
+                break
+    
+
+def color_anchor_trial(color, trial_data):
+    test_color = color['color']
+    color_name = color['color_name']
+    fill_stim = visual.Rect(
+        win = win,
+        width = 200,
+        height = 200,
+        pos = TEST_ALIEN_POS,
+    )
+    test_question_stim = visual.TextStim(
+        text = 'Please select the color that matches what you think of' + color_name,
+        pos = TEST_QUESTION_POS,
+        color = TEST_QUESTION_COLOR,
+        height = TEST_QUESTION_HEIGHT
+    )
+
+    initial_hue = np.round(np.random.uniform(0, 360), 1)
+    ring_rotation = np.round(np.random.uniform(0, 360), 1)
+
+    initial_angle = (initial_hue + ring_rotation) % 360
+    hue_rgb_psy = create_hue_rgb_psy()
+    ring_sectors, INNER_R, OUTER_R = create_color_ring(win, TEST_RING_CENTER, COLOR_RING_RADIUS, COLOR_RING_WIDTH, hue_rgb_psy, ring_rotation, COLOR_RING_SEGMENTS)
+    outer_outline = visual.Circle(
+        win = win,
+        radius = OUTER_R,
+        pos = TEST_RING_CENTER,
+        edges = 256,
+        lineColor = (0.2, 0.2, 0.2),
+        lineWidth = 1,
+        fillColor = None,
+        colorSpace = 'rgb'
+    )
+    inner_outline = visual.Circle(
+        win = win,
+        radius = INNER_R,
+        pos = TEST_RING_CENTER,
+        edges = 256,
+        lineColor = WIN_BG,
+        lineWidth = 2,
+        fillColor = None,
+        colorSpace = 'rgb'
+    )
+    selector_line = visual.Line(
+        win = win,
+        start = (0, 0),
+        end = (0, 0),
+        lineColor = COLOR_BAR_COLOR,
+        lineWidth = COLOR_BAR_WIDTH
+    )
+    submit_rect = visual.Rect(
+        win = win,
+        width = TEST_SUBMIT_SIZE[0],
+        height = TEST_SUBMIT_SIZE[1],
+        pos = TEST_SUBMIT_POS,
+        fillColor = (-0.35, -0.35, -0.35),
+        lineColor = 'white',
+        lineWidth = 2,
+        colorSpace = 'rgb'
+    )
+    submit_text = visual.TextStim(
+        win = win,
+        text = 'Confirm',
+        pos = TEST_SUBMIT_POS,
+        color = 'white',
+        height = 28
+    )
+    p1, p2 = update_color_selector_geometry(TEST_RING_CENTER, INNER_R, OUTER_R, initial_angle)
+    selector_line.start = p1
+    selector_line.end = p2
+    initial_rgb = hue_rgb_psy[initial_hue/COLOR_RING_UNIT]
+    update_alien_fill_color(fill_stim, initial_rgb)
+    fill_stim.draw()
+    test_question_stim.draw()
+    draw_color_ring(ring_sectors)
+    outer_outline.draw()
+    inner_outline.draw()
+    selector_line.draw()
+    submit_rect.draw()
+    submit_text.draw()
+    mouse = event.Mouse(visible=True)
+    rt_clock = core.Clock()
+    win.callOnFlip(rt_clock.reset)
+    win.flip()
+    trial_start_time = now_time()
+    submitted = False
+    current_hue_idx = initial_hue/COLOR_RING_UNIT
+    dragging = False
+    prev_left = False
+
+    while not submitted:
+        mouse.clickRest()
+        pt = mouse.getPos()
+        left = mouse.getPressed()[0]
+
+        new_press = left and not prev_left
+        new_release = prev_left and not left
+
+        if new_press:
+            if point_in_rect(pt, TEST_SUBMIT_POS, TEST_SUBMIT_SIZE[0], TEST_SUBMIT_SIZE[1]):
+                submitted = True
+            elif mouse_on_bar(pt, selector_line.start, selector_line.end) and not point_in_rect(pt, TEST_SUBMIT_POS, TEST_SUBMIT_SIZE[0], TEST_SUBMIT_SIZE[1]): 
+                dragging = True
+                angle = angle_from_xy(pt[0],pt[1], TEST_RING_CENTER)
+                p1, p2 = update_color_selector_geometry(TEST_RING_CENTER, INNER_R, OUTER_R, angle)
+                selector_line.start = p1
+                selector_line.end = p2
+                current_hue_idx, selected_rgb = update_selected_color_from_angle(angle,hue_rgb_psy,ring_rotation)
+                update_alien_fill_color(fill_stim, selected_rgb)      
+        if dragging and left:
+            angle = angle_from_xy(pt[0],pt[1], TEST_RING_CENTER)
+            p1, p2 = update_color_selector_geometry(TEST_RING_CENTER, INNER_R, OUTER_R, angle)
+            selector_line.start = p1
+            selector_line.end = p2
+            current_hue_idx, selected_rgb = update_selected_color_from_angle(angle,hue_rgb_psy,ring_rotation)
+            update_alien_fill_color(fill_stim, selected_rgb)      
+        if dragging and new_release:
+            dragging = False
+
+        prev_left = left
+        fill_stim.draw()
+        test_question_stim.draw()
+        draw_color_ring(ring_sectors)
+        outer_outline.draw()
+        inner_outline.draw()
+        selector_line.draw()
+        submit_rect.draw()
+        submit_text.draw()
+        win.flip()
+    selected_hue = current_hue_idx
+    rt = rt_clock.getTime()
+    trial_end_time = now_time()
+    saveData(['trial_start_time', 'trial_end_time', 'selected_hue', 'rt', 'test_color', 'color_name'], [trial_start_time, trial_end_time, selected_hue, rt, test_color, color_name], trial_data)
+
+
+def color_anchor_session():
+    colors = [
+        {'color': 0, 'color_name': 'red'},
+        {'color': 90, 'color_name': 'yellow'},
+        {'color': 180, 'color_name': 'green'},
+        {'color': 270, 'color_name': 'blue'}]
+    color_anchor_data = []
+    color_anchor_session_start = now_time()
+    color_anchor_intro = visual.TextStim(
+        win = win,
+        text = "In this part, you will be asked to select the color that matches your knowledge of each color. \n\nPress any key to start.",
+        color = 'white',
+        height = 30,
+        wrapWidth = 1.5
+    )
+    color_anchor_intro.draw()
+    win.flip()
+    event.waitKeys()
+    random.shuffle(colors)
+    for i in range(len(colors)):
+        trial_no = i + 1
+        trial_data = {
+            'color_anchor_session_start': color_anchor_session_start,
+            'color_anchor_trial_no': trial_no}
+        trial_data.update(exp_info)
+        color_anchor_trial(colors[i], trial_data)
+        color_anchor_data.append(trial_data)
+        if i < len(colors) - 1:
+            blank_screen_present(TEST_INTER_TRIAL_TIME)
+    color_anchor_session_end = now_time()
+    for trial_data in color_anchor_data:
+        trial_data['color_anchor_session_end'] = color_anchor_session_end
+        trial_data['color_anchor_session_duration'] = color_anchor_session_end - color_anchor_session_start
+    write_data_csv(f"color_anchor_participant_{exp_info['participant_id']}.csv", color_anchor_data)
+
+def run_post_exp_survey(win):
+    """
+    Run a post-experiment survey in PsychoPy.
+
+    Parameters
+    ----------
+    win : psychopy.visual.Window
+        Existing PsychoPy window.
+
+    Returns
+    -------
+    dict
+        Survey answers saved as a dictionary.
+    """
+
+    mouse = event.Mouse(win=win)
+
+    # -----------------------------
+    # Survey state
+    # -----------------------------
+
+    answers = {
+        "thought_old_aliens_between_sessions": {
+            "yes_no": None,
+            "explanation": ""
+        },
+        "found_regularity_old_aliens": {
+            "yes_no": None,
+            "explanation": ""
+        },
+        "used_strategy_memory_test": {
+            "yes_no": None,
+            "explanation": ""
+        }
+    }
+
+    active_textbox_key = None
+
+    # -----------------------------
+    # Helper functions
+    # -----------------------------
+
+    def is_complete():
+        """
+        Confirm is enabled only when:
+        - all yes/no questions are answered
+        - if yes, explanation is non-empty
+        """
+        for key, value in answers.items():
+            if value["yes_no"] is None:
+                return False
+
+            if value["yes_no"] == "yes" and value["explanation"].strip() == "":
+                return False
+
+        return True
+
+    def point_on_button(pos, rect):
+        """
+        Check whether mouse position is inside a rectangle.
+
+        rect = {
+            "x": center x,
+            "y": center y,
+            "w": width,
+            "h": height
+        }
+        """
+        x, y = pos
+        return (
+            rect["x"] - rect["w"] / 2 <= x <= rect["x"] + rect["w"] / 2
+            and
+            rect["y"] - rect["h"] / 2 <= y <= rect["y"] + rect["h"] / 2
+        )
+
+    def draw_button(label, rect, selected=False, enabled=True):
+        """
+        Draw a button and return its clickable rect.
+        """
+        if selected:
+            fill_color = "dodgerblue"
+            line_color = "white"
+            text_color = "white"
+        elif enabled:
+            fill_color = "gray25"
+            line_color = "white"
+            text_color = "white"
+        else:
+            fill_color = "gray15"
+            line_color = "gray40"
+            text_color = "gray50"
+
+        box = visual.Rect(
+            win,
+            width=rect["w"],
+            height=rect["h"],
+            pos=(rect["x"], rect["y"]),
+            fillColor=fill_color,
+            lineColor=line_color,
+            lineWidth=2
+        )
+
+        text = visual.TextStim(
+            win,
+            text=label,
+            pos=(rect["x"], rect["y"]),
+            color=text_color,
+            height=0.035,
+            wrapWidth=rect["w"] * 0.9
+        )
+
+        box.draw()
+        text.draw()
+
+    def draw_textbox(rect, text_value, active=False, enabled=True):
+        """
+        Draw a text input box.
+        """
+        if active:
+            line_color = "yellow"
+        else:
+            line_color = "white"
+
+        if not enabled:
+            fill_color = "gray10"
+            text_color = "gray45"
+            line_color = "gray35"
+        else:
+            fill_color = "gray20"
+            text_color = "white"
+
+        box = visual.Rect(
+            win,
+            width=rect["w"],
+            height=rect["h"],
+            pos=(rect["x"], rect["y"]),
+            fillColor=fill_color,
+            lineColor=line_color,
+            lineWidth=2
+        )
+
+        display_text = text_value
+        if active:
+            display_text += "|"
+
+        if display_text.strip() == "":
+            display_text = "Type your answer here..." if enabled else ""
+
+        text = visual.TextStim(
+            win,
+            text=display_text,
+            pos=(rect["x"], rect["y"]),
+            color=text_color,
+            height=0.03,
+            wrapWidth=rect["w"] * 0.92,
+            alignText="left",
+            anchorHoriz="center",
+            anchorVert="center"
+        )
+
+        box.draw()
+        text.draw()
+
+    # -----------------------------
+    # Layout
+    # -----------------------------
+
+    title = visual.TextStim(
+        win,
+        text="Post-experiment Survey",
+        pos=(0, 0.42),
+        color="white",
+        height=0.055,
+        bold=True
+    )
+
+    instruction = visual.TextStim(
+        win,
+        text="Please answer all questions. If you select Yes, please explain.",
+        pos=(0, 0.36),
+        color="white",
+        height=0.032
+    )
+
+    questions = [
+        {
+            "key": "thought_old_aliens_between_sessions",
+            "text": "1. Did you think of any old aliens in the time between learning sessions and memory test?",
+            "y": 0.22
+        },
+        {
+            "key": "found_regularity_old_aliens",
+            "text": "2. Did you find any regularity from old aliens?",
+            "y": 0.02
+        },
+        {
+            "key": "used_strategy_memory_test",
+            "text": "3. Did you use any strategy to complete the memory test?",
+            "y": -0.18
+        }
+    ]
+
+    clickable_items = {}
+
+    for q in questions:
+        key = q["key"]
+        y = q["y"]
+
+        clickable_items[(key, "yes")] = {
+            "x": -0.22,
+            "y": y - 0.055,
+            "w": 0.13,
+            "h": 0.055
+        }
+
+        clickable_items[(key, "no")] = {
+            "x": -0.06,
+            "y": y - 0.055,
+            "w": 0.13,
+            "h": 0.055
+        }
+
+        clickable_items[(key, "textbox")] = {
+            "x": 0.37,
+            "y": y - 0.055,
+            "w": 0.58,
+            "h": 0.07
+        }
+
+    confirm_rect = {
+        "x": 0,
+        "y": -0.42,
+        "w": 0.28,
+        "h": 0.07
+    }
+
+    # -----------------------------
+    # Main loop
+    # -----------------------------
+
+    submitted = False
+
+    while not submitted:
+        title.draw()
+        instruction.draw()
+
+        # Draw each question
+        for q in questions:
+            key = q["key"]
+            y = q["y"]
+
+            q_text = visual.TextStim(
+                win,
+                text=q["text"],
+                pos=(-0.75, y),
+                color="white",
+                height=0.032,
+                wrapWidth=1.45,
+                alignText="left",
+                anchorHoriz="left"
+            )
+            q_text.draw()
+
+            # Yes button
+            draw_button(
+                "Yes",
+                clickable_items[(key, "yes")],
+                selected=answers[key]["yes_no"] == "yes",
+                enabled=True
+            )
+
+            # No button
+            draw_button(
+                "No",
+                clickable_items[(key, "no")],
+                selected=answers[key]["yes_no"] == "no",
+                enabled=True
+            )
+
+            # Textbox enabled only if Yes
+            textbox_enabled = answers[key]["yes_no"] == "yes"
+
+            draw_textbox(
+                clickable_items[(key, "textbox")],
+                answers[key]["explanation"],
+                active=active_textbox_key == key,
+                enabled=textbox_enabled
+            )
+
+        # Draw confirm button
+        confirm_enabled = is_complete()
+
+        draw_button(
+            "Confirm",
+            confirm_rect,
+            selected=False,
+            enabled=confirm_enabled
+        )
+
+        if not confirm_enabled:
+            warning = visual.TextStim(
+                win,
+                text="Answer all required questions before submitting.",
+                pos=(0, -0.49),
+                color="gray70",
+                height=0.027
+            )
+            warning.draw()
+
+        win.flip()
+
+        # -------------------------
+        # Keyboard input
+        # -------------------------
+
+        keys = event.getKeys()
+
+        for keypress in keys:
+            if keypress == "escape":
+                core.quit()
+
+            if active_textbox_key is not None:
+                if keypress == "backspace":
+                    answers[active_textbox_key]["explanation"] = (
+                        answers[active_textbox_key]["explanation"][:-1]
+                    )
+
+                elif keypress == "space":
+                    answers[active_textbox_key]["explanation"] += " "
+
+                elif keypress == "return":
+                    active_textbox_key = None
+
+                elif len(keypress) == 1:
+                    answers[active_textbox_key]["explanation"] += keypress
+
+                # Basic punctuation support
+                elif keypress == "period":
+                    answers[active_textbox_key]["explanation"] += "."
+
+                elif keypress == "comma":
+                    answers[active_textbox_key]["explanation"] += ","
+
+                elif keypress == "minus":
+                    answers[active_textbox_key]["explanation"] += "-"
+
+                elif keypress == "apostrophe":
+                    answers[active_textbox_key]["explanation"] += "'"
+
+                elif keypress == "slash":
+                    answers[active_textbox_key]["explanation"] += "/"
+
+        # -------------------------
+        # Mouse input
+        # -------------------------
+
+        if mouse.getPressed()[0]:
+            mouse_pos = mouse.getPos()
+
+            # Check Yes/No buttons
+            for q in questions:
+                key = q["key"]
+
+                if point_on_button(mouse_pos, clickable_items[(key, "yes")]):
+                    answers[key]["yes_no"] = "yes"
+                    active_textbox_key = key
+
+                elif point_on_button(mouse_pos, clickable_items[(key, "no")]):
+                    answers[key]["yes_no"] = "no"
+                    answers[key]["explanation"] = ""
+                    if active_textbox_key == key:
+                        active_textbox_key = None
+
+                elif point_on_button(mouse_pos, clickable_items[(key, "textbox")]):
+                    if answers[key]["yes_no"] == "yes":
+                        active_textbox_key = key
+
+            # Check Confirm button
+            if point_on_button(mouse_pos, confirm_rect):
+                if is_complete():
+                    submitted = True
+
+            # Wait until mouse is released to avoid repeated clicks
+            while mouse.getPressed()[0]:
+                core.wait(0.01)
+
+    save_survey_answers_to_csv(answers, f"post_exp_survey_participant_{exp_info['participant_id']}.csv")
+
+def save_survey_answers_to_csv(survey_answers, filename):
+    """
+    Save post-experiment survey answers to a CSV file.
+
+    Parameters
+    ----------
+    survey_answers : dict
+        Dictionary returned by run_post_exp_survey().
+
+    filename : str
+        Output CSV filename.
+    """
+
+    with open(filename, mode="w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+
+        # Header
+        writer.writerow([
+            "question_key",
+            "yes_no",
+            "explanation"
+        ])
+
+        # Rows
+        for question_key, response in survey_answers.items():
+            writer.writerow([
+                question_key,
+                response["yes_no"],
+                response["explanation"]
+            ])
+
+
+
+
+
+
 
 
 
@@ -2305,8 +3497,8 @@ def add_name(dic, male_name_list, female_name_list):
                 male_idx += 1
     return dic
 
-def add_alien(dic, folder_names):
-    learning_path = ALIEN_PATH_LEARNING
+def add_alien(dic, folder_names, path):
+    learning_path = path
     random.shuffle(folder_names)
     folder_idx = 0
     for value in dic.values():
@@ -2555,7 +3747,7 @@ if exp_info['session'] == '1':
         color_residence_planet = pair_by_preassigned_planets(color_samples, residence_samples, ALIEN_PLANETS, field_names=['color_group', 'color_degree', 'residence_group', 'residence_degree'])
 
     name_added = add_name(color_residence_planet, ALIEN_M_NAMES, ALIEN_F_NAMES)
-    alien_added = add_alien(name_added,['list_1', 'list_2', 'list_3', 'list_4'])
+    alien_added = add_alien(name_added,['list_1', 'list_2', 'list_3', 'list_4'], ALIEN_PATH_LEARNING)
     order_group_added = add_order_group(alien_added)
     full_stimuli = add_others(order_group_added,exp_info)
     create_stimuli_csv(full_stimuli, exp_info["participant_id"])                            
