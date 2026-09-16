@@ -126,7 +126,7 @@ NUM_ALIEN_LEARNING_PER_GROUP = 8 ## number of aliens assigned to each group duri
 NUM_TESTING_PER_GROUP = 8
 NUM_TESTING_GROUP = 4
 
-NUM_GENERALIZATION_PER_GROUP = 2
+NUM_GENERALIZATION_PER_GROUP = 4
 NUM_GENERALIZATION_GROUPS = 4
 
 ### Phase settings for the working memory test, the memory test, generalization test, color reconstruction. 
@@ -963,7 +963,7 @@ def run_working_memory_session(data, n_trials):
 
 
 
-######### Main test session functions. #################
+######### Main session functions. #################
 
 def read_stimuli_from_csv(participant_id):
     stimuli_path = 'stimuli_participant_' + participant_id + '.csv'
